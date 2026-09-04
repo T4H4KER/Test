@@ -1,6 +1,6 @@
 --[[
-    ToanCreator GUI - Fixed & Optimized
-    Mobile Friendly (270x360)
+    ToanCreator GUI - Final Fixed Version
+    Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
 
@@ -56,10 +56,14 @@ local Settings = {
 local Locations = {}
 local SelectedPlayer = nil
 local SelectedLocation = nil
-local FreecamCFrame = nil
+
+-- Variables cho Freecam
+local FreecamPos = Vector3.zero
+local FreecamRot = Vector2.zero
+local FakeCameraPart = nil
 
 --==================================================
--- UTILS
+-- UTILS & SCREEN GUI
 --==================================================
 
 local function Create(cls, props)
@@ -76,12 +80,8 @@ local function AddStroke(parent, col, th)
     return Create("UIStroke", { Color = col or Color3.fromRGB(60, 60, 70), Thickness = th or 1, Parent = parent })
 end
 
---==================================================
--- MAIN SCREEN & DRAG
---==================================================
-
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_V2",
+    Name = "ToanCreatorGUI_Final",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -98,6 +98,7 @@ local Main = Create("Frame", {
 AddCorner(Main, 10)
 AddStroke(Main, Color3.fromRGB(60, 60, 75), 1.5)
 
+-- DRAG SYSTEM
 local function MakeDraggable(frame, handle)
     local dragging, dragStart, startPos
     handle = handle or frame
@@ -124,7 +125,7 @@ local function MakeDraggable(frame, handle)
 end
 MakeDraggable(Main, Main)
 
--- HEADER & CONTROL BUTTONS
+-- HEADER
 local Header = Create("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = COLORS.Panel, Parent = Main })
 AddCorner(Header, 10)
 
@@ -140,23 +141,54 @@ AddCorner(MinimizeButton, 5)
 local CloseButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -28, 0, 6), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 15, Font = Enum.Font.GothamBold, Parent = Header })
 AddCorner(CloseButton, 5)
 
--- TAB BAR & CONTENT CONTAINER
-local TabBar = Create("ScrollingFrame", {
+--==================================================
+-- FIXED TAB BAR (HIỂN THỊ TÊN TAB CHUẨN)
+--==================================================
+
+local TabBar = Create("Frame", {
     Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 0, 40),
-    BackgroundTransparency = 1, ScrollBarThickness = 0, AutomaticCanvasSize = Enum.AutomaticSize.X,
-    ScrollingDirection = Enum.ScrollingDirection.X, Parent = Main
+    BackgroundTransparency = 1, Parent = Main
 })
-Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), Parent = TabBar })
+
+local TabListLayout = Create("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 4),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = TabBar
+})
 
 local Content = Create("Frame", { Size = UDim2.new(1, -12, 1, -78), Position = UDim2.new(0, 6, 0, 74), BackgroundTransparency = 1, Parent = Main })
 
 local Tabs, Pages = {}, {}
+local tabOrderCount = 0
+
 local function CreateTab(name)
-    local btn = Create("TextButton", { Size = UDim2.new(0, 75, 1, 0), BackgroundColor3 = COLORS.Button, Text = name, TextColor3 = COLORS.SubText, TextSize = 11, Font = Enum.Font.GothamBold, Parent = TabBar })
+    tabOrderCount = tabOrderCount + 1
+    local btn = Create("TextButton", {
+        Size = UDim2.new(0, 82, 1, 0),
+        BackgroundColor3 = COLORS.Button,
+        Text = name,
+        TextColor3 = COLORS.SubText,
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        LayoutOrder = tabOrderCount,
+        Parent = TabBar
+    })
     AddCorner(btn, 5)
-    local page = Create("ScrollingFrame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false, Parent = Content })
+
+    local page = Create("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+        Parent = Content
+    })
     Create("UIListLayout", { Padding = UDim.new(0, 5), Parent = page })
+
     Tabs[name], Pages[name] = btn, page
+
     btn.MouseButton1Click:Connect(function()
         for tName, tBtn in pairs(Tabs) do
             local sel = (tName == name)
@@ -172,11 +204,15 @@ local MovePage = CreateTab("MOVE")
 local ESPPage = CreateTab("ESP")
 local OptionPage = CreateTab("OPTION")
 
+-- Mặc định chọn Tab MOVE
+Tabs["MOVE"].BackgroundColor3 = COLORS.Accent
+Tabs["MOVE"].TextColor3 = Color3.new(1, 1, 1)
+Pages["MOVE"].Visible = true
+
 --==================================================
--- UI COMPONENTS (COMBINED & OPTIMIZED)
+-- UI COMPONENTS (TỐI GIẢN 1 DÒNG)
 --==================================================
 
--- Tích hợp Nhập Số + Checkbox trên 1 Dòng
 local function CreateCombinedInput(parent, labelText, defaultVal, onValueChange, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
@@ -221,7 +257,6 @@ local function CreateCombinedInput(parent, labelText, defaultVal, onValueChange,
     return holder
 end
 
--- Toggle Đơn
 local function CreateCheckbox(parent, labelText, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
@@ -250,7 +285,6 @@ local function CreateCheckbox(parent, labelText, onToggle)
     return holder
 end
 
--- ESP Combo (Color Picker + Checkbox 1 Dòng)
 local function CreateESPCombo(parent, labelText, defaultColor, onColorChange, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
@@ -294,24 +328,35 @@ local function CreateESPCombo(parent, labelText, defaultColor, onColorChange, on
 end
 
 --==================================================
--- MOVE TAB SETUP
+-- MOVE TAB SETUP & FIXED FLY CONTROLS
 --==================================================
 
 CreateCombinedInput(MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
 CreateCombinedInput(MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
 
--- FLY & MOBILE CONTROLS
+-- Nút Fly Mobile Sửa Lỗi Cảm Ứng Nhấn Giữ
 local FlyControls = Create("Frame", { Size = UDim2.new(0, 100, 0, 45), Position = UDim2.new(1, -110, 0.5, -22), BackgroundTransparency = 1, Visible = false, Parent = ScreenGui })
 local FlyUp = Create("TextButton", { Size = UDim2.new(0, 45, 0, 45), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "↑", TextColor3 = Color3.new(1,1,1), TextSize = 22, Font = Enum.Font.GothamBold, Parent = FlyControls })
 AddCorner(FlyUp, 22)
+
 local FlyDown = Create("TextButton", { Size = UDim2.new(0, 45, 0, 45), Position = UDim2.new(0, 50, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "↓", TextColor3 = Color3.new(1,1,1), TextSize = 22, Font = Enum.Font.GothamBold, Parent = FlyControls })
 AddCorner(FlyDown, 22)
 
 local flyUpHeld, flyDownHeld = false, false
-FlyUp.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then flyUpHeld = true end end)
-FlyUp.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then flyUpHeld = false end end)
-FlyDown.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then flyDownHeld = false end end)
-FlyDown.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then flyDownHeld = false end end)
+
+local function BindPressHold(button, stateUpdate)
+    button.MouseButton1Down:Connect(function() stateUpdate(true) end)
+    button.MouseButton1Up:Connect(function() stateUpdate(false) end)
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then stateUpdate(true) end
+    end)
+    button.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then stateUpdate(false) end
+    end)
+end
+
+BindPressHold(FlyUp, function(st) flyUpHeld = st end)
+BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
 CreateCheckbox(MovePage, "fly", function(v)
     Settings.Fly = v
@@ -327,7 +372,7 @@ CreateCheckbox(MovePage, "no gravity", function(v)
     end
 end)
 
--- SCROLLING LIST FOR TP PLAYER
+-- TP PLAYER SCROLL LIST
 local TpPlayerHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpPlayerHolder, 5)
 
@@ -366,7 +411,7 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- SCROLLING LIST FOR TP LOCATION
+-- TP LOCATION SCROLL LIST
 local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpLocHolder, 5)
 
@@ -409,7 +454,6 @@ SetBtn.MouseButton1Click:Connect(function()
     local locData = { Name = name, CFrame = myRoot.CFrame }
     table.insert(Locations, locData)
 
-    -- Marker Emerald Neon
     local folder = workspace:FindFirstChild("ToanCreator_Markers") or Create("Folder", { Name = "ToanCreator_Markers", Parent = workspace })
     local part = Create("Part", { Name = name, Size = Vector3.new(1.2, 1.2, 1.2), Position = myRoot.Position, Anchored = true, CanCollide = false, Material = Enum.Material.Neon, Color = Color3.fromRGB(130, 255, 170), Parent = folder })
     local bill = Create("BillboardGui", { Size = UDim2.new(0, 100, 0, 25), StudsOffset = Vector3.new(0, 1.8, 0), AlwaysOnTop = true, Adornee = part, Parent = part })
@@ -436,13 +480,25 @@ CreateESPCombo(ESPPage, "player hitbox", Settings.PlayerHitboxColor, function(c)
 CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) Settings.PlayerTraceColor = c end, function(s) Settings.PlayerTrace = s end)
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
+
+-- FREECAM (HỒN LÌA KHỎI XÁC - BAY TỰ DO NHƯ MA)
 CreateCheckbox(ESPPage, "freecam", function(v)
     Settings.Freecam = v
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+
     if v then
-        FreecamCFrame = Camera.CFrame
+        if root then
+            root.Anchored = true -- Khóa thân xác lại tại chỗ
+            FreecamPos = Camera.CFrame.Position
+        end
         Camera.CameraType = Enum.CameraType.Scriptable
     else
+        if root then root.Anchored = false end
         Camera.CameraType = Enum.CameraType.Custom
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
+        end
     end
 end)
 
@@ -462,76 +518,72 @@ end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
 --==================================================
--- MAIN LOGIC & RENDER LOOPS (FIXED ALL BUGS)
+-- MAIN RENDER LOOP & ESP/HITBOX/TRACE LOGIC
 --==================================================
-
--- Canvas Drawing cho Player Trace
-local DrawingCanvas = Create("ScreenGui", { Name = "ToanCreator_Traces", IgnoreGuiInset = true, Parent = PlayerGui })
 
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local myRoot = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-    -- 1. SPEED & JUMP FIX
+    -- Speed & Jump
     if hum then
         if Settings.Speed.Enabled then hum.WalkSpeed = Settings.Speed.Value end
         if Settings.Jump.Enabled then hum.UseJumpPower = true; hum.JumpPower = Settings.Jump.Value end
     end
 
-    -- 2. NOCLIP FIX
+    -- Noclip
     if Settings.Noclip and char then
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 
-    -- 3. FLY FIX (Giữ nguyên di chuyển bàn phím/joystick + nút nâng hạ độ cao)
+    -- Fly Vertical Fix
     if Settings.Fly and myRoot and hum then
-        hum.PlatformStand = true
         local moveDir = hum.MoveDirection
         local flyVel = moveDir * 50
-        local ySpeed = (flyUpHeld and 35 or 0) - (flyDownHeld and 35 or 0)
+        local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
         myRoot.AssemblyLinearVelocity = Vector3.new(flyVel.X, ySpeed, flyVel.Z)
-    elseif char and hum and not Settings.Fly then
-        hum.PlatformStand = false
     end
 
-    -- 4. NO GRAVITY FIX
+    -- No Gravity
     if Settings.NoGravity and myRoot then
         local bv = myRoot:FindFirstChild("NoGravForce") or Create("BodyVelocity", { Name = "NoGravForce", MaxForce = Vector3.new(0, 100000, 0), Velocity = Vector3.zero, Parent = myRoot })
     elseif myRoot and myRoot:FindFirstChild("NoGravForce") and not Settings.Fly then
         myRoot.NoGravForce:Destroy()
     end
 
-    -- 5. FREECAM FIX
-    if Settings.Freecam and FreecamCFrame then
+    -- Freecam Ghost Fly Fix
+    if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
-        local moveVec = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec = moveVec + Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec = moveVec - Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec = moveVec - Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec = moveVec + Camera.CFrame.RightVector end
-        FreecamCFrame = FreecamCFrame + (moveVec * 1.5)
-        Camera.CFrame = FreecamCFrame
+        local speed = 1.2
+        local moveVector = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Camera.CFrame.RightVector end
+
+        -- Di chuyển bằng cảm ứng góc nhìn
+        FreecamPos = FreecamPos + (moveVector * speed)
+        Camera.CFrame = CFrame.new(FreecamPos) * (Camera.CFrame - Camera.CFrame.Position)
     end
 
-    -- 6. FULLBRIGHT FIX
+    -- Fullbright
     if Settings.Fullbright then
         Lighting.Brightness = 2
         Lighting.ClockTime = 14
         Lighting.GlobalShadows = false
     end
 
-    -- 7. ESP / TRACE / DISTANCE CHECK FIX
-    DrawingCanvas:ClearAllChildren()
-
+    -- ESP, Hitbox & Trace Loops
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local targetRoot = p.Character.HumanoidRootPart
             local dist = myRoot and (myRoot.Position - targetRoot.Position).Magnitude or 9999
 
-            -- Player ESP Label
+            -- 1. Player ESP Label
             local espTag = targetRoot:FindFirstChild("ToanESP")
             if Settings.PlayerESP then
                 if not espTag then
@@ -551,35 +603,45 @@ RunService.RenderStepped:Connect(function()
                 espTag:Destroy()
             end
 
-            -- Hitbox
-            local hb = p.Character:FindFirstChild("ToanHitbox")
+            -- 2. Player Hitbox XEM XUYÊN TƯỜNG (Dùng Highlight)
+            local hb = p.Character:FindFirstChild("ToanHitboxHighlight")
             if Settings.PlayerHitbox then
                 if not hb then
-                    Create("SelectionBox", { Name = "ToanHitbox", Adornee = p.Character, LineThickness = 0.04, SurfaceTransparency = 0.85, Parent = p.Character })
+                    hb = Create("Highlight", {
+                        Name = "ToanHitboxHighlight",
+                        DepthMode = Enum.HighlightDepthMode.AlwaysOnTop, -- Xuyên tường
+                        FillTransparency = 0.6,
+                        OutlineTransparency = 0,
+                        Parent = p.Character
+                    })
                 end
-                p.Character.ToanHitbox.Color3 = Settings.PlayerHitboxColor
-                p.Character.ToanHitbox.SurfaceColor3 = Settings.PlayerHitboxColor
+                hb.FillColor = Settings.PlayerHitboxColor
+                hb.OutlineColor = Settings.PlayerHitboxColor
             elseif hb then
                 hb:Destroy()
             end
 
-            -- Trace Line (Frame Vector Canvas)
-            if Settings.PlayerTrace then
-                local posA, visA = Camera:WorldToViewportPoint(myRoot and myRoot.Position or Camera.CFrame.Position)
-                local posB, visB = Camera:WorldToViewportPoint(targetRoot.Position)
-                if visB then
-                    local line = Create("Frame", {
-                        AnchorPoint = Vector2.new(0.5, 0.5),
-                        BackgroundColor3 = Settings.PlayerTraceColor,
-                        BorderSizePixel = 0,
-                        Parent = DrawingCanvas
+            -- 3. Player Trace Line XEM XUYÊN TƯỜNG (Dùng Beam 3D)
+            local traceBeam = targetRoot:FindFirstChild("ToanTraceBeam")
+            if Settings.PlayerTrace and myRoot then
+                if not traceBeam then
+                    local att0 = myRoot:FindFirstChild("ToanAtt") or Create("Attachment", { Name = "ToanAtt", Parent = myRoot })
+                    local att1 = targetRoot:FindFirstChild("ToanAtt") or Create("Attachment", { Name = "ToanAtt", Parent = targetRoot })
+
+                    traceBeam = Create("Beam", {
+                        Name = "ToanTraceBeam",
+                        Attachment0 = att0,
+                        Attachment1 = att1,
+                        Width0 = 0.1,
+                        Width1 = 0.1,
+                        FaceCamera = true,
+                        AlwaysOnTop = true, -- Xem xuyên tường
+                        Parent = targetRoot
                     })
-                    local distance = math.sqrt((posB.X - posA.X)^2 + (posB.Y - posA.Y)^2)
-                    local angle = math.atan2(posB.Y - posA.Y, posB.X - posA.X)
-                    line.Size = UDim2.new(0, distance, 0, 1.5)
-                    line.Position = UDim2.new(0, (posA.X + posB.X)/2, 0, (posA.Y + posB.Y)/2)
-                    line.Rotation = math.deg(angle)
                 end
+                traceBeam.Color = ColorSequence.new(Settings.PlayerTraceColor)
+            elseif traceBeam then
+                traceBeam:Destroy()
             end
         end
     end
@@ -627,4 +689,4 @@ YesBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("ToanCreator GUI Updated Successfully!")
+print("ToanCreator GUI Loaded Successfully!")
