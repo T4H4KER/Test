@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Fixed Freecam, ShiftLock & Distance Check (50 studs)
+    ToanCreator GUI - Fixed Freecam Camera Rotation, Reduced Purple Duration & Updated ShiftLock UI
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -73,6 +73,8 @@ local SelectedLocation = nil
 
 -- Freecam System Variables
 local FreecamCFrame = CFrame.new()
+local freecamYaw = 0
+local freecamPitch = 0
 
 -- System Tracking
 local PlayerStats = {}
@@ -97,7 +99,7 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_v6",
+    Name = "ToanCreatorGUI_v7",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -476,7 +478,16 @@ CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) S
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FREECAM CONFIG & LOGIC
+-- FREECAM CONFIG & LOGIC (XOAY CAMERA MÀN HÌNH CẢM ỨNG / MOUSE)
+UserInputService.InputChanged:Connect(function(input, gameProcessed)
+    if not Settings.Freecam then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Delta
+        freecamYaw = freecamYaw - delta.X * 0.003
+        freecamPitch = math.clamp(freecamPitch - delta.Y * 0.003, math.rad(-89), math.rad(89))
+    end
+end)
+
 CreateCheckbox(ESPPage, "freecam", function(v)
     Settings.Freecam = v
     FlyControls.Visible = v
@@ -489,6 +500,9 @@ CreateCheckbox(ESPPage, "freecam", function(v)
             end
         end
         FreecamCFrame = Camera.CFrame
+        local x, y, z = Camera.CFrame:ToOrientation()
+        freecamYaw = y
+        freecamPitch = x
         Camera.CameraType = Enum.CameraType.Scriptable
     else
         if char then
@@ -518,17 +532,17 @@ CreateCheckbox(OptionPage, "fixlag", function(v)
 end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
--- MOBILE SHIFT LOCK UI BUTTON
+-- MOBILE SHIFT LOCK UI BUTTON (NHỎ LẠI & ĐẶT VÀO GÓC DƯỚI CÙNG BÊN PHẢI)
 local ShiftLockBtn = Create("ImageButton", {
-    Size = UDim2.new(0, 45, 0, 45),
-    Position = UDim2.new(1, -60, 0.5, -90),
+    Size = UDim2.new(0, 35, 0, 35),
+    Position = UDim2.new(1, -45, 1, -45),
     BackgroundColor3 = COLORS.Panel,
     Image = "rbxassetid://6031068433",
     Visible = false,
     ZIndex = 90,
     Parent = ScreenGui
 })
-AddCorner(ShiftLockBtn, 22)
+AddCorner(ShiftLockBtn, 18)
 AddStroke(ShiftLockBtn, COLORS.Accent, 1.5)
 
 CreateCheckbox(OptionPage, "locks", function(v)
@@ -627,7 +641,8 @@ end)
 
 local function TriggerPurple(p)
     if not PlayerStats[p] then PlayerStats[p] = {} end
-    PlayerStats[p].PurpleEndTime = os.clock() + 5
+    -- GIẢM THỜI GIAN GIỮ MÀU TÍM TỪ 5S -> 2S
+    PlayerStats[p].PurpleEndTime = os.clock() + 2
 end
 
 local function GetPlayerColor(p)
@@ -639,7 +654,7 @@ local function GetPlayerColor(p)
         return COLORS.Black
     end
 
-    -- Ưu tiên 1: Cảnh báo khoảng cách gần (Dưới hoặc bằng 50 studs)
+    -- Ưu tiên 1: Cảnh báo khoảng cách gần (<= 50 studs)
     if stats.NearPlayer then
         return COLORS.Yellow
     end
@@ -649,7 +664,7 @@ local function GetPlayerColor(p)
         return COLORS.Red
     end
 
-    -- Ưu tiên 3: Tốc độ/Nhảy bất thường
+    -- Ưu tiên 3: Tốc độ/Nhảy bất thường (2 Giây)
     if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
         return COLORS.Purple
     end
@@ -700,7 +715,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FIXED FREECAM MOVEMENT
+    -- FREECAM LOGIC (CÓ THỂ QUAY MÀN HÌNH TỰ DO)
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -710,17 +725,16 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
 
         local speed = 1.5
-        local lookCFrame = Camera.CFrame
-        local rightVec = lookCFrame.RightVector
-        local forwardVec = lookCFrame.LookVector
+        local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
+        
+        local rightVec = rotCFrame.RightVector
+        local forwardVec = rotCFrame.LookVector
 
         local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
         FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed, 0)
         
-        -- Áp dụng rotation thực tế của màn hình cảm ứng vào vị trí Freecam
-        Camera.CFrame = CFrame.new(FreecamCFrame.Position) * (lookCFrame - lookCFrame.Position)
-        FreecamCFrame = Camera.CFrame
+        Camera.CFrame = CFrame.new(FreecamCFrame.Position) * rotCFrame
     end
 
     if Settings.Fullbright then
@@ -738,7 +752,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- ESP & DISTANCE CHECK (<= 50 STUDS)
     local allPlayers = Players:GetPlayers()
     
-    -- Clear trạng thái khoảng cách cũ
     for _, p in ipairs(allPlayers) do
         if not PlayerStats[p] then PlayerStats[p] = {} end
         PlayerStats[p].NearPlayer = false
@@ -874,4 +887,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v6 (All Bugs Fixed) Loaded!")
+print("ToanCreator GUI v7 Updated Successfully!")
