@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Fixed Freecam Camera Rotation, Reduced Purple Duration & Updated ShiftLock UI
+    ToanCreator GUI - Faster Freecam Sensitivity & Ultra-Small ShiftLock (15px)
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -99,7 +99,7 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_v7",
+    Name = "ToanCreatorGUI_v8",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -478,13 +478,14 @@ CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) S
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FREECAM CONFIG & LOGIC (XOAY CAMERA MÀN HÌNH CẢM ỨNG / MOUSE)
+-- FREECAM CONFIG & LOGIC (ĐÃ TĂNG TỐC ĐỘ XOAY CAMERA CẢM ỨNG / MOUSE)
 UserInputService.InputChanged:Connect(function(input, gameProcessed)
     if not Settings.Freecam then return end
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         local delta = input.Delta
-        freecamYaw = freecamYaw - delta.X * 0.003
-        freecamPitch = math.clamp(freecamPitch - delta.Y * 0.003, math.rad(-89), math.rad(89))
+        -- Tăng độ nhạy từ 0.003 lên 0.008 để xoay màn hình nhanh hơn
+        freecamYaw = freecamYaw - delta.X * 0.008
+        freecamPitch = math.clamp(freecamPitch - delta.Y * 0.008, math.rad(-89), math.rad(89))
     end
 end)
 
@@ -532,18 +533,18 @@ CreateCheckbox(OptionPage, "fixlag", function(v)
 end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
--- MOBILE SHIFT LOCK UI BUTTON (NHỎ LẠI & ĐẶT VÀO GÓC DƯỚI CÙNG BÊN PHẢI)
+-- MOBILE SHIFT LOCK UI BUTTON (THU NHỎ CÒN 15px & NẰM SÁT GÓC DƯỚI BÊN PHẢI)
 local ShiftLockBtn = Create("ImageButton", {
-    Size = UDim2.new(0, 35, 0, 35),
-    Position = UDim2.new(1, -45, 1, -45),
+    Size = UDim2.new(0, 15, 0, 15),
+    Position = UDim2.new(1, -20, 1, -20),
     BackgroundColor3 = COLORS.Panel,
     Image = "rbxassetid://6031068433",
     Visible = false,
     ZIndex = 90,
     Parent = ScreenGui
 })
-AddCorner(ShiftLockBtn, 18)
-AddStroke(ShiftLockBtn, COLORS.Accent, 1.5)
+AddCorner(ShiftLockBtn, 4)
+AddStroke(ShiftLockBtn, COLORS.Accent, 1)
 
 CreateCheckbox(OptionPage, "locks", function(v)
     Settings.ShiftLock = v
@@ -641,7 +642,6 @@ end)
 
 local function TriggerPurple(p)
     if not PlayerStats[p] then PlayerStats[p] = {} end
-    -- GIẢM THỜI GIAN GIỮ MÀU TÍM TỪ 5S -> 2S
     PlayerStats[p].PurpleEndTime = os.clock() + 2
 end
 
@@ -654,17 +654,14 @@ local function GetPlayerColor(p)
         return COLORS.Black
     end
 
-    -- Ưu tiên 1: Cảnh báo khoảng cách gần (<= 50 studs)
     if stats.NearPlayer then
         return COLORS.Yellow
     end
 
-    -- Ưu tiên 2: Cảnh báo tấn công/Sát thương
     if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
         return COLORS.Red
     end
 
-    -- Ưu tiên 3: Tốc độ/Nhảy bất thường (2 Giây)
     if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
         return COLORS.Purple
     end
@@ -715,7 +712,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FREECAM LOGIC (CÓ THỂ QUAY MÀN HÌNH TỰ DO)
+    -- FREECAM LOGIC
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -743,13 +740,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Lighting.GlobalShadows = false
     end
 
-    -- FIXED SHIFTLOCK (MOBILE SUPPORT)
+    -- FIXED SHIFTLOCK
     if Settings.ShiftLock and shiftLockActive and myRoot then
         local lookVector = Camera.CFrame.LookVector
         myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
     end
 
-    -- ESP & DISTANCE CHECK (<= 50 STUDS)
+    -- ESP & DISTANCE CHECK
     local allPlayers = Players:GetPlayers()
     
     for _, p in ipairs(allPlayers) do
@@ -887,4 +884,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v7 Updated Successfully!")
+print("ToanCreator GUI v8 Updated Successfully!")
