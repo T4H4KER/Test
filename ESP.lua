@@ -430,11 +430,11 @@ end
 BindPressHold(FlyUp, function(st) flyUpHeld = st end)
 BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
--- NÚT FLY TOGGLE NẰM Ở GIỮA GÓC BÊN PHẢI (Nền xanh nước biển + Chữ trắng "fly")
+-- NÚT FLY TOGGLE NẰM Ở BÊN TRÁI MÀN HÌNH (CÁCH 20PX) + CHỮ TRẮNG VIỀN ĐEN
 local FlyToggleBtn = Create("TextButton", {
     Size = UDim2.new(0, 55, 0, 30),
-    AnchorPoint = Vector2.new(1, 0.5),
-    Position = UDim2.new(1, -10, 0.5, 0),
+    AnchorPoint = Vector2.new(0, 0.5),
+    Position = UDim2.new(0, 20, 0.5, 0),
     BackgroundColor3 = COLORS.Accent,
     Text = "fly",
     TextColor3 = Color3.new(1, 1, 1),
@@ -444,7 +444,7 @@ local FlyToggleBtn = Create("TextButton", {
     Parent = ScreenGui
 })
 AddCorner(FlyToggleBtn, 6)
-AddStroke(FlyToggleBtn, Color3.fromRGB(255, 255, 255), 1)
+AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
 
 local function SetFlyState(enabled)
     Settings.Fly = enabled
@@ -482,7 +482,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local PlayerTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpPlayerHolder })
 AddCorner(PlayerTpBtn, 4)
 
-local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = PlayerTpHolder })
+local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpPlayerHolder })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = PlayerScrollList })
 
 local function RefreshPlayerList()
@@ -829,7 +829,6 @@ end)
 -- DISTANCE & ADVANCED ANOMALY DETECTOR
 --==================================================
 
--- TÊN ĐỔI MÀU TÍM TRONG 3 GIÂY (ĐÃ SỬA TỪ 2 SANG 3S)
 local function TriggerPurple(p)
     if not PlayerStats[p] then PlayerStats[p] = {} end
     PlayerStats[p].PurpleEndTime = os.clock() + 3
@@ -1074,4 +1073,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v8 - Integrated Fixes Successfully!")
+print("ToanCreator GUI v8 - Fly Button Moved to Left 20px!")
