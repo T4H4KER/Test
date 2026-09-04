@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Freecam Direction & Tilt Bug Fix
+    ToanCreator GUI - Freecam & AutoExecute Duplication Fix
     Mobile Optimized
 ]]
 
@@ -9,6 +9,12 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+
+-- PREVENT MULTIPLE EXECUTIONS OF THE GUI ITSELF
+if getgenv and getgenv().ToanCreatorLoaded then
+    return
+end
+if getgenv then getgenv().ToanCreatorLoaded = true end
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -161,13 +167,6 @@ local function SaveConfigsToFile()
 end
 
 LoadSavedConfigsFromFile()
-
-if SavedConfigs["AutoExecute_State"] and SavedConfigs["AutoExecute_State"].AutoExecute then
-    local qFunc = GetQueueOnTeleport()
-    if qFunc then
-        pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
-    end
-end
 
 -- Freecam State Variables
 local FreecamPos = Vector3.zero
@@ -668,7 +667,6 @@ CreateCheckbox("DistanceCheck", ESPPage, "distance check", function(v) Settings.
 UserInputService.InputChanged:Connect(function(input, gameProcessed)
     if not Settings.Freecam then return end
     
-    -- Chỉ nhận quay camera khi chạm bên nửa phải màn hình (tránh việc bấm nút joystick di chuyển bị quay)
     if input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Delta
         freecamYaw = freecamYaw - delta.X * 0.008
@@ -721,7 +719,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 --==================================================
--- OPTION TAB SETUP
+-- OPTION TAB SETUP (SỬA LỖI AUTO EXECUTE TRÙNG LẶP)
 --==================================================
 
 CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
@@ -739,9 +737,12 @@ CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     SavedConfigs["AutoExecute_State"] = { AutoExecute = v }
     SaveConfigsToFile()
 
-    local qFunc = GetQueueOnTeleport()
-    if v and qFunc then
-        pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
+    -- Chỉ thêm vào queue khi thực sự BẬT tích chọn
+    if v then
+        local qFunc = GetQueueOnTeleport()
+        if qFunc then
+            pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
+        end
     end
 end)
 
@@ -923,7 +924,7 @@ local function GetPlayerColor(p)
 end
 
 --==================================================
--- RENDER LOOP (FIX HOÀN TOÀN HƯỚNG BẤM JOYSTICK VÀ LƯỚT QUAY)
+-- RENDER LOOP
 --==================================================
 
 local function GetLine(p)
@@ -971,7 +972,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- ĐÃ SỬA LỖI TÍNH TOÁN FREECAM TẤT CẢ TRỤC DI CHUYỂN
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -981,24 +981,18 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
 
         local speed = 1.5
-
-        -- Tính toán góc Yaw phẳng (chỉ tính xoay ngang)
         local yawCFrame = CFrame.Angles(0, freecamYaw, 0)
         
-        -- Lấy đúng hướng Tiến/Lùi và Trái/Phải theo Yaw chuẩn không nghiêng mặt đất
         local forwardDir = yawCFrame.LookVector
         local rightDir = yawCFrame.RightVector
 
-        -- Bấm nút di chuyển đi đúng hướng
         local moveX = moveVector.X
-        local moveZ = moveVector.Z -- trục Z của GetMoveVector là Tiến(Âm) / Lùi(Dương)
+        local moveZ = moveVector.Z
 
         local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
-        -- Cộng dồn tọa độ di chuyển chuẩn mặt phẳng
         FreecamPos = FreecamPos + (rightDir * (moveX * speed)) + (forwardDir * (-moveZ * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
         
-        -- Tạo CFrame chuẩn kết hợp giữa vị trí và góc nhìn
         local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
         Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
@@ -1165,10 +1159,11 @@ MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false; MiniBu
 
 CloseButton.MouseButton1Click:Connect(function()
     ShowConfirm("Đóng Script ToanCreator?", function()
+        if getgenv then getgenv().ToanCreatorLoaded = false end
         for _, l in pairs(TraceLines) do pcall(function() l:Remove() end) end
         if workspace:FindFirstChild("ToanCreator_Markers") then workspace.ToanCreator_Markers:Destroy() end
         ScreenGui:Destroy()
     end)
 end)
 
-print("ToanCreator GUI - Mobile Freecam Fully Fixed!")
+print("ToanCreator GUI - AutoExecute Duplication Fixed!")
