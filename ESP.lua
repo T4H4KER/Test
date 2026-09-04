@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Fully Fixed Version
+    ToanCreator GUI - Final Advanced Version
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -27,6 +27,8 @@ local COLORS = {
     Green = Color3.fromRGB(80, 220, 130),
     Red = Color3.fromRGB(235, 70, 70),
     Yellow = Color3.fromRGB(255, 215, 70),
+    Purple = Color3.fromRGB(170, 0, 255),
+    Black = Color3.fromRGB(20, 20, 20)
 }
 
 local Settings = {
@@ -57,10 +59,14 @@ local Locations = {}
 local SelectedPlayer = nil
 local SelectedLocation = nil
 
--- Freecam Variables
+-- Variables cho Freecam
 local FreecamPos = Vector3.zero
+local FreecamRot = Vector2.zero
+local TouchStart = nil
+local TouchRotStart = Vector2.zero
 
--- Cache Drawing Tracers (Đảm bảo hoạt động xuyên tường 100%)
+-- System Tracking theo dõi bất thường
+local PlayerStats = {}
 local TraceLines = {}
 
 --==================================================
@@ -82,7 +88,7 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_FinalFixed",
+    Name = "ToanCreatorGUI_v3",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -371,7 +377,7 @@ CreateCheckbox(MovePage, "no gravity", function(v)
     end
 end)
 
--- TP PLAYER SCROLL LIST
+-- TP PLAYER LIST
 local TpPlayerHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpPlayerHolder, 5)
 
@@ -410,7 +416,7 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- TP LOCATION SCROLL LIST
+-- TP LOCATION LIST
 local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpLocHolder, 5)
 
@@ -480,7 +486,7 @@ CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) S
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FIXED FREECAM (GIỮ NÚT DI CHUYỂN HOẠT ĐỘNG BÌNH THƯỜNG)
+-- FREECAM ĐÃ SỬA CÓ THỂ CẢM ỨNG XOAY MÀN HÌNH BẰNG TAY
 CreateCheckbox(ESPPage, "freecam", function(v)
     Settings.Freecam = v
     local char = LocalPlayer.Character
@@ -492,6 +498,8 @@ CreateCheckbox(ESPPage, "freecam", function(v)
             end
         end
         FreecamPos = Camera.CFrame.Position
+        local x, y, _ = Camera.CFrame:ToOrientation()
+        FreecamRot = Vector2.new(math.deg(x), math.deg(y))
         Camera.CameraType = Enum.CameraType.Scriptable
     else
         if char then
@@ -503,6 +511,30 @@ CreateCheckbox(ESPPage, "freecam", function(v)
         if char and char:FindFirstChildOfClass("Humanoid") then
             Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
         end
+    end
+end)
+
+-- CẢM ỨNG XOAY MÀN HÌNH CHO FREECAM
+UserInputService.InputBegan:Connect(function(input)
+    if Settings.Freecam and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+        TouchStart = input.Position
+        TouchRotStart = FreecamRot
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if Settings.Freecam and TouchStart and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - TouchStart
+        FreecamRot = Vector2.new(
+            math.clamp(TouchRotStart.X - (delta.Y * 0.3), -80, 80),
+            TouchRotStart.Y - (delta.X * 0.3)
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        TouchStart = nil
     end
 end)
 
@@ -522,7 +554,39 @@ end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
 --==================================================
--- RENDER LOOP & ESP / TRACE / HITBOX FIX
+-- DISTANCE & ADVANCED ANOMALY DETECTOR
+--==================================================
+
+local function TriggerPurple(p)
+    if not PlayerStats[p] then PlayerStats[p] = {} end
+    PlayerStats[p].PurpleEndTime = os.clock() + 5
+end
+
+local function GetPlayerColor(p)
+    local stats = PlayerStats[p] or {}
+    local char = p.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    -- 1. Tên màu đen (Đang sống -> Chết)
+    if not char or not hum or hum.Health <= 0 then
+        return COLORS.Black
+    end
+
+    -- 2. Tên màu đỏ (Sát nhân / Vừa hạ người chơi khác)
+    if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
+        return COLORS.Red
+    end
+
+    -- 3. Tên màu tím trong 5s (Bất thường: chạy nhanh, nhảy cao, tele, va chạm, sát thương)
+    if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
+        return COLORS.Purple
+    end
+
+    return Settings.PlayerESPColor
+end
+
+--==================================================
+-- RENDER LOOP
 --==================================================
 
 local function GetLine(p)
@@ -553,7 +617,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Fly Vertical Fix
+    -- Fly
     if Settings.Fly and myRoot and hum then
         local moveDir = hum.MoveDirection
         local flyVel = moveDir * 50
@@ -568,7 +632,7 @@ RunService.RenderStepped:Connect(function()
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FREECAM DIEU KHIEN BANG CAN GAT/MUT DI CHUYEN ROBLOX
+    -- FREECAM VỚI XOAY MÀN HÌNH TAY
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         local speed = 1.5
@@ -577,8 +641,9 @@ RunService.RenderStepped:Connect(function()
         if flyUpHeld then moveDir = moveDir + Vector3.new(0, 1, 0) end
         if flyDownHeld then moveDir = moveDir - Vector3.new(0, 1, 0) end
 
-        FreecamPos = FreecamPos + (moveDir * speed)
-        Camera.CFrame = CFrame.new(FreecamPos) * (Camera.CFrame - Camera.CFrame.Position)
+        local rotCFrame = CFrame.Angles(0, math.rad(FreecamRot.Y), 0) * CFrame.Angles(math.rad(FreecamRot.X), 0, 0)
+        FreecamPos = FreecamPos + (rotCFrame:VectorToWorldSpace(moveDir) * speed)
+        Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
 
     -- Fullbright
@@ -588,12 +653,51 @@ RunService.RenderStepped:Connect(function()
         Lighting.GlobalShadows = false
     end
 
-    -- PLAYER ESP / HITBOX / TRACE LOGIC
-    for _, p in ipairs(Players:GetPlayers()) do
+    -- PLAYER LOOPS
+    local allPlayers = Players:GetPlayers()
+    for i, p in ipairs(allPlayers) do
         if p ~= LocalPlayer and p.Character then
             local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                local dist = myRoot and (myRoot.Position - targetRoot.Position).Magnitude or 9999
+            local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
+
+            if targetRoot and targetHum then
+                if not PlayerStats[p] then PlayerStats[p] = { LastPos = targetRoot.Position, LastHP = targetHum.Health } end
+                local stats = PlayerStats[p]
+
+                -- THEO DÕI BẤT THƯỜNG (MÀU TÍM)
+                -- Speed > 24 hoặc Jump > 55
+                if targetHum.WalkSpeed > 24 or targetHum.JumpPower > 55 then TriggerPurple(p) end
+
+                -- Teleport / Dịch chuyển tức thời
+                local speedDist = (targetRoot.Position - stats.LastPos).Magnitude
+                if speedDist > 80 then TriggerPurple(p) end
+                stats.LastPos = targetRoot.Position
+
+                -- Gây sát thương / Bị mất máu
+                if targetHum.Health < stats.LastHP then
+                    TriggerPurple(p)
+                    stats.LastHP = targetHum.Health
+                end
+
+                -- Khoảng cách giữa 2 Player khác nhau (Distance Check)
+                if Settings.DistanceCheck then
+                    for j = i + 1, #allPlayers do
+                        local otherP = allPlayers[j]
+                        if otherP ~= LocalPlayer and otherP.Character and otherP.Character:FindFirstChild("HumanoidRootPart") then
+                            local otherRoot = otherP.Character.HumanoidRootPart
+                            local pDistance = (targetRoot.Position - otherRoot.Position).Magnitude
+                            
+                            -- Đụng chạm / tiếp xúc quá gần
+                            if pDistance <= 3.5 then
+                                TriggerPurple(p)
+                                TriggerPurple(otherP)
+                            end
+                        end
+                    end
+                end
+
+                -- LẤY MÀU CHO ESP & HITBOX & TRACE
+                local displayColor = GetPlayerColor(p)
 
                 -- 1. PLAYER ESP
                 local espTag = targetRoot:FindFirstChild("ToanESP")
@@ -603,45 +707,39 @@ RunService.RenderStepped:Connect(function()
                         Create("TextLabel", { Name = "Txt", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, TextSize = 11, Font = Enum.Font.GothamBold, Parent = bill })
                     end
                     local label = targetRoot.ToanESP.Txt
-                    local displayStr = p.Name
-                    if Settings.DistanceCheck and dist <= 50 then
-                        displayStr = displayStr .. " [•]"
-                        label.TextColor3 = COLORS.Yellow
-                    else
-                        label.TextColor3 = Settings.PlayerESPColor
-                    end
-                    label.Text = displayStr
+                    label.TextColor3 = displayColor
+                    label.Text = p.Name
                 elseif espTag then
                     espTag:Destroy()
                 end
 
-                -- 2. HITBOX XEM XUYÊN TƯỜNG CẢ TRONG TRẬN (BoxHandleAdornment)
+                -- 2. HITBOX
                 local hb = targetRoot:FindFirstChild("ToanHitboxAdorn")
                 if Settings.PlayerHitbox then
                     if not hb then
                         hb = Create("BoxHandleAdornment", {
                             Name = "ToanHitboxAdorn",
                             Size = Vector3.new(4, 5, 4),
-                            AlwaysOnTop = true, -- Xuyên tường cả trong trận
+                            AlwaysOnTop = true,
                             ZIndex = 10,
                             Transparency = 0.5,
                             Adornee = targetRoot,
                             Parent = targetRoot
                         })
                     end
-                    hb.Color3 = Settings.PlayerHitboxColor
+                    hb.Color3 = displayColor
                 elseif hb then
                     hb:Destroy()
                 end
 
-                -- 3. ESP TRACE LINE (DRAWING API - HOẠT ĐỘNG 100%)
+                -- 3. ESP TRACE
                 local line = GetLine(p)
                 if Settings.PlayerTrace then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(targetRoot.Position)
                     if onScreen then
                         line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                         line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Color = Settings.PlayerTraceColor
+                        line.Color = displayColor
                         line.Visible = true
                     else
                         line.Visible = false
@@ -656,27 +754,48 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Clear Trace lines khi người chơi rời khỏi game
-Players.PlayerRemoving:Connect(function(p)
-    if TraceLines[p] then
-        TraceLines[p]:Remove()
-        TraceLines[p] = nil
-    end
-end)
-
 --==================================================
--- MINIMIZE BUTTON FIX (TC -> AVATAR & CLICK 1 LẦN)
+-- MINIMIZE BUTTON FIX (TẠO HÌNH VUÔNG/BO TRÒN BẰNG NỀN VÀ KHUÔN)
 --==================================================
 
 local MiniButton = Create("ImageButton", {
-    Size = UDim2.new(0, 45, 0, 45),
-    Position = UDim2.new(0, 15, 0.5, -22),
-    Image = "https://i.ibb.co/G4sFk4K6/1781919848774.png",
-    BackgroundTransparency = 1,
+    Size = UDim2.new(0, 50, 0, 50),
+    Position = UDim2.new(0, 15, 0.5, -25),
+    BackgroundColor3 = COLORS.Panel,
+    Image = "rbxassetid://1781919848774", -- Dự phòng Roblox Asset ID
+    BackgroundTransparency = 0,
+    BorderSizePixel = 0,
     Visible = false,
+    ZIndex = 100,
     Parent = ScreenGui
 })
-AddCorner(MiniButton, 22)
+AddCorner(MiniButton, 10)
+AddStroke(MiniButton, COLORS.Accent, 2)
+
+-- Nút Chữ Dự Phòng Phòng Trường Hợp Link Web i.ibb Không Tải Được Trên Roblox Executer
+local MiniTextFallback = Create("TextLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "TC",
+    TextColor3 = COLORS.Accent,
+    TextSize = 16,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 101,
+    Parent = MiniButton
+})
+
+-- Tải ảnh Online i.ibb
+task.spawn(function()
+    local success, customImg = pcall(function()
+        return game:HttpGet("https://i.ibb.co/G4sFk4K6/1781919848774.png")
+    end)
+    if success and customImg then
+        -- Khởi tạo ảnh nếu Executor hỗ trợ Asset
+        MiniTextFallback.Visible = false
+        MiniButton.Image = "https://i.ibb.co/G4sFk4K6/1781919848774.png"
+    end
+end)
+
 MakeDraggable(MiniButton, MiniButton)
 
 -- Mở Menu chỉ với 1 LẦN BẤM
@@ -711,4 +830,4 @@ YesBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("ToanCreator GUI Updated Successfully!")
+print("ToanCreator GUI Loaded Successfully!")
