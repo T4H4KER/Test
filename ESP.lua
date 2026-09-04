@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Final Advanced Version
+    ToanCreator GUI - Fixed & Optimized Version
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -59,7 +59,7 @@ local Locations = {}
 local SelectedPlayer = nil
 local SelectedLocation = nil
 
--- Variables cho Freecam
+-- Freecam System Variables
 local FreecamPos = Vector3.zero
 local FreecamRot = Vector2.zero
 local TouchStart = nil
@@ -88,7 +88,7 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_v3",
+    Name = "ToanCreatorGUI_v4",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -386,7 +386,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local PlayerTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpPlayerHolder })
 AddCorner(PlayerTpBtn, 4)
 
-local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpPlayerHolder })
+local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = PlayerScrollList })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = PlayerScrollList })
 
 local function RefreshPlayerList()
@@ -425,7 +425,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local LocTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpLocHolder })
 AddCorner(LocTpBtn, 4)
 
-local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpLocHolder })
+local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = LocScrollList })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = LocScrollList })
 
 local function RefreshLocationList()
@@ -472,7 +472,7 @@ end)
 LocTpBtn.MouseButton1Click:Connect(function()
     if SelectedLocation then
         local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myRoot then myRoot.CFrame = SelectedLocation.CFrame * CFrame.new(0, 2, 0) end
+        if myRoot me then myRoot.CFrame = SelectedLocation.CFrame * CFrame.new(0, 2, 0) end
     end
 end)
 
@@ -486,9 +486,37 @@ CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) S
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FREECAM ĐÃ SỬA CÓ THỂ CẢM ỨNG XOAY MÀN HÌNH BẰNG TAY
+--==================================================
+-- FREECAM ĐIỀU KHIỂN BẰNG NÚT BẤM RIÊNG (D-PAD CHUYÊN DỤNG)
+--==================================================
+
+local FreecamDPad = Create("Frame", {
+    Size = UDim2.new(0, 120, 0, 120),
+    Position = UDim2.new(0, 20, 1, -150),
+    BackgroundTransparency = 1,
+    Visible = false,
+    Parent = ScreenGui
+})
+
+local btnFwd = Create("TextButton", { Size = UDim2.new(0, 38, 0, 38), Position = UDim2.new(0.5, -19, 0, 0), BackgroundColor3 = COLORS.Button, Text = "▲", TextColor3 = COLORS.Text, TextSize = 16, Parent = FreecamDPad })
+local btnBack = Create("TextButton", { Size = UDim2.new(0, 38, 0, 38), Position = UDim2.new(0.5, -19, 1, -38), BackgroundColor3 = COLORS.Button, Text = "▼", TextColor3 = COLORS.Text, TextSize = 16, Parent = FreecamDPad })
+local btnLeft = Create("TextButton", { Size = UDim2.new(0, 38, 0, 38), Position = UDim2.new(0, 0, 0.5, -19), BackgroundColor3 = COLORS.Button, Text = "◀", TextColor3 = COLORS.Text, TextSize = 16, Parent = FreecamDPad })
+local btnRight = Create("TextButton", { Size = UDim2.new(0, 38, 0, 38), Position = UDim2.new(1, -38, 0.5, -19), BackgroundColor3 = COLORS.Button, Text = "▶", TextColor3 = COLORS.Text, TextSize = 16, Parent = FreecamDPad })
+
+AddCorner(btnFwd, 8); AddCorner(btnBack, 8); AddCorner(btnLeft, 8); AddCorner(btnRight, 8)
+AddStroke(btnFwd, COLORS.Accent, 1); AddStroke(btnBack, COLORS.Accent, 1); AddStroke(btnLeft, COLORS.Accent, 1); AddStroke(btnRight, COLORS.Accent, 1)
+
+local FC_Move = { Fwd = false, Back = false, Left = false, Right = false }
+
+BindPressHold(btnFwd, function(st) FC_Move.Fwd = st end)
+BindPressHold(btnBack, function(st) FC_Move.Back = st end)
+BindPressHold(btnLeft, function(st) FC_Move.Left = st end)
+BindPressHold(btnRight, function(st) FC_Move.Right = st end)
+
 CreateCheckbox(ESPPage, "freecam", function(v)
     Settings.Freecam = v
+    FreecamDPad.Visible = v
+    FlyControls.Visible = v -- Dùng phím ↑ ↓ của Fly để di chuyển độ cao Freecam
     local char = LocalPlayer.Character
 
     if v then
@@ -514,7 +542,7 @@ CreateCheckbox(ESPPage, "freecam", function(v)
     end
 end)
 
--- CẢM ỨNG XOAY MÀN HÌNH CHO FREECAM
+-- VUỐT MÀN HÌNH ĐỂ XOAY MÀN HÌNH FREECAM
 UserInputService.InputBegan:Connect(function(input)
     if Settings.Freecam and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
         TouchStart = input.Position
@@ -525,9 +553,10 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if Settings.Freecam and TouchStart and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         local delta = input.Position - TouchStart
+        -- Đảo ngược chiều Y để vuốt lên nhìn lên, vuốt xuống nhìn xuống mượt mà
         FreecamRot = Vector2.new(
-            math.clamp(TouchRotStart.X - (delta.Y * 0.3), -80, 80),
-            TouchRotStart.Y - (delta.X * 0.3)
+            math.clamp(TouchRotStart.X + (delta.Y * 0.25), -80, 80),
+            TouchRotStart.Y - (delta.X * 0.25)
         )
     end
 end)
@@ -554,7 +583,7 @@ end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
 --==================================================
--- DISTANCE & ADVANCED ANOMALY DETECTOR
+-- DISTANCE & ADVANCED ANOMALY DETECTOR (ĐÃ FIX BÁO NHẦM TỐC ĐỘ)
 --==================================================
 
 local function TriggerPurple(p)
@@ -572,12 +601,12 @@ local function GetPlayerColor(p)
         return COLORS.Black
     end
 
-    -- 2. Tên màu đỏ (Sát nhân / Vừa hạ người chơi khác)
+    -- 2. Tên màu đỏ (Sát nhân)
     if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
         return COLORS.Red
     end
 
-    -- 3. Tên màu tím trong 5s (Bất thường: chạy nhanh, nhảy cao, tele, va chạm, sát thương)
+    -- 3. Tên màu tím trong 5s (Bất thường)
     if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
         return COLORS.Purple
     end
@@ -599,7 +628,7 @@ local function GetLine(p)
     return TraceLines[p]
 end
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(deltaTime)
     local char = LocalPlayer.Character
     local myRoot = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -632,12 +661,17 @@ RunService.RenderStepped:Connect(function()
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FREECAM VỚI XOAY MÀN HÌNH TAY
+    -- FREECAM VỚI D-PAD CHUYÊN DỤNG
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
-        local speed = 1.5
-        local moveDir = (hum and hum.MoveDirection) or Vector3.zero
+        local speed = 1.2
         
+        local moveDir = Vector3.zero
+        if FC_Move.Fwd then moveDir = moveDir + Vector3.new(0, 0, -1) end
+        if FC_Move.Back then moveDir = moveDir + Vector3.new(0, 0, 1) end
+        if FC_Move.Left then moveDir = moveDir + Vector3.new(-1, 0, 0) end
+        if FC_Move.Right then moveDir = moveDir + Vector3.new(1, 0, 0) end
+
         if flyUpHeld then moveDir = moveDir + Vector3.new(0, 1, 0) end
         if flyDownHeld then moveDir = moveDir - Vector3.new(0, 1, 0) end
 
@@ -664,16 +698,22 @@ RunService.RenderStepped:Connect(function()
                 if not PlayerStats[p] then PlayerStats[p] = { LastPos = targetRoot.Position, LastHP = targetHum.Health } end
                 local stats = PlayerStats[p]
 
-                -- THEO DÕI BẤT THƯỜNG (MÀU TÍM)
-                -- Speed > 24 hoặc Jump > 55
-                if targetHum.WalkSpeed > 24 or targetHum.JumpPower > 55 then TriggerPurple(p) end
+                -- KIỂM TRA BẤT THƯỜNG CHÍNH XÁC DỰA TRÊN THỜI GIAN THỰC (DELTATIME)
+                if deltaTime > 0 then
+                    local frameDist = (targetRoot.Position - stats.LastPos).Magnitude
+                    local realSpeed = frameDist / deltaTime -- Tốc độ thực tế stud/giây
 
-                -- Teleport / Dịch chuyển tức thời
-                local speedDist = (targetRoot.Position - stats.LastPos).Magnitude
-                if speedDist > 80 then TriggerPurple(p) end
+                    -- Chỉ gắn cờ màu tím khi Tốc độ vượt ngưỡng 35 stud/s (chạy thường là 16)
+                    if realSpeed > 35 then
+                        TriggerPurple(p)
+                    end
+                end
                 stats.LastPos = targetRoot.Position
 
-                -- Gây sát thương / Bị mất máu
+                -- Nhảy cao bất thường
+                if targetHum.JumpPower > 65 then TriggerPurple(p) end
+
+                -- Mất máu / Bị thương
                 if targetHum.Health < stats.LastHP then
                     TriggerPurple(p)
                     stats.LastHP = targetHum.Health
@@ -687,7 +727,6 @@ RunService.RenderStepped:Connect(function()
                             local otherRoot = otherP.Character.HumanoidRootPart
                             local pDistance = (targetRoot.Position - otherRoot.Position).Magnitude
                             
-                            -- Đụng chạm / tiếp xúc quá gần
                             if pDistance <= 3.5 then
                                 TriggerPurple(p)
                                 TriggerPurple(otherP)
@@ -755,44 +794,39 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --==================================================
--- MINIMIZE BUTTON FIX (TẠO HÌNH VUÔNG/BO TRÒN BẰNG NỀN VÀ KHUÔN)
+-- MINIMIZE BUTTON (FIX HIỂN THỊ ANH ONLINE TỪ GITHUB RAW)
 --==================================================
 
 local MiniButton = Create("ImageButton", {
     Size = UDim2.new(0, 50, 0, 50),
     Position = UDim2.new(0, 15, 0.5, -25),
     BackgroundColor3 = COLORS.Panel,
-    Image = "rbxassetid://1781919848774", -- Dự phòng Roblox Asset ID
-    BackgroundTransparency = 0,
+    BackgroundTransparency = 1,
     BorderSizePixel = 0,
     Visible = false,
     ZIndex = 100,
     Parent = ScreenGui
 })
 AddCorner(MiniButton, 10)
-AddStroke(MiniButton, COLORS.Accent, 2)
+AddStroke(MiniButton, COLORS.Accent, 1.5)
 
--- Nút Chữ Dự Phòng Phòng Trường Hợp Link Web i.ibb Không Tải Được Trên Roblox Executer
-local MiniTextFallback = Create("TextLabel", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "TC",
-    TextColor3 = COLORS.Accent,
-    TextSize = 16,
-    Font = Enum.Font.GothamBold,
-    ZIndex = 101,
-    Parent = MiniButton
-})
-
--- Tải ảnh Online i.ibb
+-- Tải ảnh bằng httpGet từ GitHub Raw
 task.spawn(function()
-    local success, customImg = pcall(function()
-        return game:HttpGet("https://i.ibb.co/G4sFk4K6/1781919848774.png")
-    end)
-    if success and customImg then
-        -- Khởi tạo ảnh nếu Executor hỗ trợ Asset
-        MiniTextFallback.Visible = false
-        MiniButton.Image = "https://i.ibb.co/G4sFk4K6/1781919848774.png"
+    local imgUrl = "https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"
+    local fileName = "ToanCreator_Icon.png"
+    
+    if writefile and getcustomasset then
+        if not isfile or not isfile(fileName) then
+            local success, content = pcall(function() return game:HttpGet(imgUrl) end)
+            if success and content then
+                writefile(fileName, content)
+            end
+        end
+        if isfile and isfile(fileName) then
+            MiniButton.Image = getcustomasset(fileName)
+        end
+    else
+        MiniButton.Image = imgUrl
     end
 end)
 
@@ -830,4 +864,4 @@ YesBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-print("ToanCreator GUI Loaded Successfully!")
+print("ToanCreator GUI Updated Successfully!")
