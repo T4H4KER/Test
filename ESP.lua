@@ -1,6 +1,6 @@
 --[[
-    ToanCreator GUI - Option Bug Fixes & Auto Save File
-    Mobile Optimized (270x360)
+    ToanCreator GUI - Option Bug Fixes & Upgrades
+    Mobile Optimized
     Credit: ToanCreator
 ]]
 
@@ -15,7 +15,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Roblox Player Control Module cho Mobile/Touch
+-- Roblox Player Control Module
 local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts")
 local MasterControl = nil
 pcall(function()
@@ -35,7 +35,6 @@ local function GetQueueOnTeleport()
         or (codex and codex.queue_on_teleport)
 end
 
--- Script loader dùng để chạy lại khi chuyển server
 local SCRIPT_LOADER_CODE = [[
     repeat task.wait() until game:IsLoaded()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"))()
@@ -83,7 +82,8 @@ local DefaultSettings = {
     Fullbright = false,
     FixLag = false,
     AutoExecute = false,
-    ShiftLock = false
+    ShiftLock = false,
+    MenuLock = false
 }
 
 local Settings = {}
@@ -94,7 +94,6 @@ local SavedConfigs = {}
 local SelectedPlayer = nil
 local SelectedLocation = nil
 
--- Hàm Color3 sang Table & ngược lại để lưu JSON
 local function Color3ToTable(c) return {R = c.R, G = c.G, B = c.B} end
 local function TableToColor3(t) return Color3.new(t.R or 1, t.G or 1, t.B or 1) end
 
@@ -121,7 +120,8 @@ local function LoadSavedConfigsFromFile()
                     Fullbright = cfgData.Fullbright or false,
                     FixLag = cfgData.FixLag or false,
                     AutoExecute = cfgData.AutoExecute or false,
-                    ShiftLock = cfgData.ShiftLock or false
+                    ShiftLock = cfgData.ShiftLock or false,
+                    MenuLock = cfgData.MenuLock or false
                 }
             end
             return formatted
@@ -152,7 +152,8 @@ local function SaveConfigsToFile()
                     Fullbright = cfgData.Fullbright,
                     FixLag = cfgData.FixLag,
                     AutoExecute = cfgData.AutoExecute,
-                    ShiftLock = cfgData.ShiftLock
+                    ShiftLock = cfgData.ShiftLock,
+                    MenuLock = cfgData.MenuLock
                 }
             end
             writefile(CONFIG_FILE_NAME, HttpService:JSONEncode(dataToSave))
@@ -162,7 +163,6 @@ end
 
 LoadSavedConfigsFromFile()
 
--- Xử lý đăng ký AutoExecute nếu đã lưu trước đó
 if SavedConfigs["AutoExecute_State"] and SavedConfigs["AutoExecute_State"].AutoExecute then
     local qFunc = GetQueueOnTeleport()
     if qFunc then
@@ -216,24 +216,28 @@ local Main = Create("Frame", {
 AddCorner(Main, 10)
 AddStroke(Main, Color3.fromRGB(60, 60, 75), 1.5)
 
--- DRAG SYSTEM
-local function MakeDraggable(frame, handle)
+-- SỬA LỖI UI DRAG: TÁCH BIỆT MÀN HÌNH CAMERA KHI KÉO UI
+local function MakeDraggable(frame, handle, canDragCheck)
     local dragging, dragStart, startPos
     handle = handle or frame
     handle.InputBegan:Connect(function(input)
+        if canDragCheck and not canDragCheck() then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            local conn
-            conn = input.Changed:Connect(function()
+            
+            -- Khóa điều hướng camera trong thời gian kéo UI
+            local touchConn
+            touchConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
-                    conn:Disconnect()
+                    if touchConn then touchConn:Disconnect() end
                 end
             end)
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
@@ -438,12 +442,59 @@ end
 CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
 CreateCombinedInput("Jump", MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
 
-local FlyControls = Create("Frame", { Size = UDim2.new(0, 100, 0, 45), Position = UDim2.new(1, -110, 0.5, -22), BackgroundTransparency = 1, Visible = false, Parent = ScreenGui })
-local FlyUp = Create("TextButton", { Size = UDim2.new(0, 45, 0, 45), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "↑", TextColor3 = Color3.new(1,1,1), TextSize = 22, Font = Enum.Font.GothamBold, Parent = FlyControls })
-AddCorner(FlyUp, 22)
+-- NÚT FLY TOGGLE NẰM BÊN TRÁI MÀN HÌNH (CÁCH BÉ TRÁI 20PX)
+local FlyToggleBtn = Create("TextButton", {
+    Size = UDim2.new(0, 55, 0, 30),
+    AnchorPoint = Vector2.new(0, 0.5),
+    Position = UDim2.new(0, 20, 0.5, -30),
+    BackgroundColor3 = COLORS.Accent,
+    Text = "fly",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 13,
+    Font = Enum.Font.GothamBold,
+    Visible = false,
+    ZIndex = 80,
+    Parent = ScreenGui
+})
+AddCorner(FlyToggleBtn, 6)
+AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
 
-local FlyDown = Create("TextButton", { Size = UDim2.new(0, 45, 0, 45), Position = UDim2.new(0, 50, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "↓", TextColor3 = Color3.new(1,1,1), TextSize = 22, Font = Enum.Font.GothamBold, Parent = FlyControls })
-AddCorner(FlyDown, 22)
+-- CẢI TIẾN 2 NÚT LÊN - XUỐNG: HÌNH CHỮ NHẬT 25PX, NẰM BÊN TRÁI, CÁCH NÚT FLY 5PX
+local FlyControls = Create("Frame", { 
+    Size = UDim2.new(0, 55, 0, 55), 
+    AnchorPoint = Vector2.new(0, 0),
+    Position = UDim2.new(0, 20, 0.5, -10), -- Nằm bên trái, ngay phía dưới nút Fly (30px chiều cao + 5px khoảng cách)
+    BackgroundTransparency = 1, 
+    Visible = false, 
+    ZIndex = 80,
+    Parent = ScreenGui 
+})
+
+local FlyUp = Create("TextButton", { 
+    Size = UDim2.new(1, 0, 0, 25), 
+    Position = UDim2.new(0, 0, 0, 0), 
+    BackgroundColor3 = COLORS.Accent, 
+    Text = "▲", 
+    TextColor3 = Color3.new(1,1,1), 
+    TextSize = 12, 
+    Font = Enum.Font.GothamBold, 
+    Parent = FlyControls 
+})
+AddCorner(FlyUp, 5)
+AddStroke(FlyUp, Color3.fromRGB(0, 0, 0), 1)
+
+local FlyDown = Create("TextButton", { 
+    Size = UDim2.new(1, 0, 0, 25), 
+    Position = UDim2.new(0, 0, 0, 30), 
+    BackgroundColor3 = COLORS.Accent, 
+    Text = "▼", 
+    TextColor3 = Color3.new(1,1,1), 
+    TextSize = 12, 
+    Font = Enum.Font.GothamBold, 
+    Parent = FlyControls 
+})
+AddCorner(FlyDown, 5)
+AddStroke(FlyDown, Color3.fromRGB(0, 0, 0), 1)
 
 local flyUpHeld, flyDownHeld = false, false
 
@@ -457,23 +508,6 @@ end
 BindPressHold(FlyUp, function(st) flyUpHeld = st end)
 BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
--- NÚT FLY TOGGLE NẰM Ở BÊN TRÁI MÀN HÌNH (CÁCH 20PX) + MẶC ĐỊNH ẨN (VISIBLE = FALSE)
-local FlyToggleBtn = Create("TextButton", {
-    Size = UDim2.new(0, 55, 0, 30),
-    AnchorPoint = Vector2.new(0, 0.5),
-    Position = UDim2.new(0, 20, 0.5, 0),
-    BackgroundColor3 = COLORS.Accent,
-    Text = "fly",
-    TextColor3 = Color3.new(1, 1, 1),
-    TextSize = 13,
-    Font = Enum.Font.GothamBold,
-    Visible = false, -- MẶC ĐỊNH ẨN, CHỈ HIỆN KHI CHECKBOX DƯỢC TÍCH
-    ZIndex = 80,
-    Parent = ScreenGui
-})
-AddCorner(FlyToggleBtn, 6)
-AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
-
 local isFlyingActive = false
 FlyToggleBtn.MouseButton1Click:Connect(function()
     isFlyingActive = not isFlyingActive
@@ -481,7 +515,6 @@ FlyToggleBtn.MouseButton1Click:Connect(function()
     FlyToggleBtn.BackgroundColor3 = isFlyingActive and COLORS.Green or COLORS.Accent
 end)
 
--- CHECKBOX FLY TRÊN MENU: BẬT -> HIỆN NÚT FLY; TẮT -> ẨN NÚT FLY & NÚT ĐIỀU KHIỂN
 CreateCheckbox("Fly", MovePage, "fly", function(v)
     Settings.Fly = v
     FlyToggleBtn.Visible = v
@@ -683,7 +716,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 --==================================================
--- OPTION TAB SETUP & AUTO EXECUTE FIX
+-- OPTION TAB SETUP
 --==================================================
 
 CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
@@ -696,11 +729,8 @@ CreateCheckbox("FixLag", OptionPage, "fixlag", function(v)
     end
 end)
 
--- AUTO EXECUTE ĐÃ ĐƯỢC CẢI TIẾN TRUY VẤN EXECUTOR VÀ LƯU VÀO STATE FILE
 CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     Settings.AutoExecute = v
-    
-    -- Lưu trạng thái vào file config để tự khôi phục khi đổi server
     SavedConfigs["AutoExecute_State"] = { AutoExecute = v }
     SaveConfigsToFile()
 
@@ -710,7 +740,7 @@ CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     end
 end)
 
--- MOBILE SHIFT LOCK UI BUTTON (15px)
+-- MOBILE SHIFT LOCK UI BUTTON (15px) - ĐỔI TÊN THÀNH "shift lock"
 local ShiftLockBtn = Create("ImageButton", {
     Size = UDim2.new(0, 15, 0, 15),
     Position = UDim2.new(1, -20, 1, -20),
@@ -723,7 +753,7 @@ local ShiftLockBtn = Create("ImageButton", {
 AddCorner(ShiftLockBtn, 4)
 AddStroke(ShiftLockBtn, COLORS.Accent, 1)
 
-CreateCheckbox("ShiftLock", OptionPage, "locks", function(v)
+CreateCheckbox("ShiftLock", OptionPage, "shift lock", function(v)
     Settings.ShiftLock = v
     ShiftLockBtn.Visible = v
 end)
@@ -732,6 +762,11 @@ local shiftLockActive = false
 ShiftLockBtn.MouseButton1Click:Connect(function()
     shiftLockActive = not shiftLockActive
     ShiftLockBtn.BackgroundColor3 = shiftLockActive and COLORS.Accent or COLORS.Panel
+end)
+
+-- THÊM TÍNH NĂNG "MENU LOCK"
+CreateCheckbox("MenuLock", OptionPage, "menu lock", function(v)
+    Settings.MenuLock = v
 end)
 
 -- HÀM ÁP DỤNG SETTINGS VÀO GIAO DIỆN UI
@@ -756,6 +791,7 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["FixLag"] then UI_Controls["FixLag"].SetState(Settings.FixLag) end
     if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
     if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
+    if UI_Controls["MenuLock"] then UI_Controls["MenuLock"].SetState(Settings.MenuLock) end
 
     FlyToggleBtn.Visible = Settings.Fly
     if not Settings.Fly then
@@ -888,7 +924,7 @@ local function GetPlayerColor(p)
 end
 
 --==================================================
--- RENDER LOOP
+-- RENDER LOOP (SỬA LỖI FLY DI CHUYỂN BỊ NGHIÊNG/RUNG)
 --==================================================
 
 local function GetLine(p)
@@ -917,12 +953,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    -- CHỈ BAY KHI CẢ CHECKBOX TRÊN MENU VÀ NÚT TOGGLE NGOÀI MÀN HÌNH ĐỀU BẬT
+    -- SỬA LỖI FLY: BẢO ĐẢM DI CHUYỂN THẲNG HÀNG TRÊN NỀN PHẲNG $X,Z$ VÀ KHÔNG BỊ RUNG
     if Settings.Fly and isFlyingActive and myRoot and hum then
         local moveDir = hum.MoveDirection
-        local flyVel = moveDir * 50
+        -- Loại bỏ hoàn toàn độ nghiêng trục Y khỏi Cần Gạt Di Chuyển
+        local flatMoveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
+        if flatMoveDir.Magnitude > 0 then
+            flatMoveDir = flatMoveDir.Unit
+        end
+
+        local flySpeed = Settings.Speed.Enabled and Settings.Speed.Value or 50
         local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
-        myRoot.AssemblyLinearVelocity = Vector3.new(flyVel.X, ySpeed, flyVel.Z)
+        
+        -- Triệt tiêu gia tốc trọng lực & rung lắc
+        myRoot.AssemblyLinearVelocity = Vector3.new(flatMoveDir.X * flySpeed, ySpeed, flatMoveDir.Z * flySpeed)
     end
 
     if Settings.NoGravity and myRoot then
@@ -931,7 +975,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FREECAM LOGIC
+    -- SỬA LỖI FREECAM: CỐ ĐỊNH PHƯƠNG DI CHUYỂN SONG SONG MẶT ĐẤT
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -943,12 +987,14 @@ RunService.RenderStepped:Connect(function(deltaTime)
         local speed = 1.5
         local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
         
-        local rightVec = rotCFrame.RightVector
-        local forwardVec = rotCFrame.LookVector
+        -- Chỉ lấy hướng phẳng (Horizontal) của Camera
+        local flatYawCFrame = CFrame.Angles(0, freecamYaw, 0)
+        local rightVec = flatYawCFrame.RightVector
+        local forwardVec = flatYawCFrame.LookVector
 
-        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 40 or 0)
+        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
-        FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed, 0)
+        FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
         
         Camera.CFrame = CFrame.new(FreecamCFrame.Position) * rotCFrame
     end
@@ -1064,7 +1110,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 end)
 
 --==================================================
--- MINIMIZE BUTTON
+-- MINIMIZE BUTTON & MENU LOCK SYSTEM
 --==================================================
 
 local MiniButton = Create("ImageButton", {
@@ -1090,9 +1136,29 @@ task.spawn(function()
     end
 end)
 
-MakeDraggable(MiniButton, MiniButton)
+-- MENU LOCK: KHÓA KÉO DI CHUYỂN KHI BẬT
+MakeDraggable(MiniButton, MiniButton, function()
+    return not Settings.MenuLock
+end)
 
-MiniButton.MouseButton1Click:Connect(function() Main.Visible = true; MiniButton.Visible = false end)
+-- MENU LOCK: XỬ LÝ NHẤP ĐÚP (2 LẦN) ĐỂ MỞ BẢNG UI
+local lastClickTime = 0
+MiniButton.MouseButton1Click:Connect(function()
+    if Settings.MenuLock then
+        local currentTime = os.clock()
+        if currentTime - lastClickTime <= 0.4 then
+            Main.Visible = true
+            MiniButton.Visible = false
+            lastClickTime = 0
+        else
+            lastClickTime = currentTime
+        end
+    else
+        Main.Visible = true
+        MiniButton.Visible = false
+    end
+end)
+
 MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false; MiniButton.Visible = true end)
 
 CloseButton.MouseButton1Click:Connect(function()
@@ -1103,4 +1169,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI - V 5.0")
+print("ToanCreator GUI - Updated Version Fully Loaded!")
