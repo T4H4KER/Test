@@ -442,7 +442,7 @@ end
 CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
 CreateCombinedInput("Jump", MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
 
--- NÚT FLY TOGGLE NẰM BÊN TRÁI MÀN HÌNH (CÁCH BÉ TRÁI 20PX)
+-- NÚT FLY TOGGLE NẰM BÊN TRÁI MÀN HÌNH
 local FlyToggleBtn = Create("TextButton", {
     Size = UDim2.new(0, 55, 0, 30),
     AnchorPoint = Vector2.new(0, 0.5),
@@ -459,11 +459,11 @@ local FlyToggleBtn = Create("TextButton", {
 AddCorner(FlyToggleBtn, 6)
 AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
 
--- CẢI TIẾN 2 NÚT LÊN - XUỐNG: HÌNH CHỮ NHẬT 25PX, NẰM BÊN TRÁI, CÁCH NÚT FLY 5PX
+-- CẢI TIẾN 2 NÚT LÊN - XUỐNG
 local FlyControls = Create("Frame", { 
     Size = UDim2.new(0, 55, 0, 55), 
     AnchorPoint = Vector2.new(0, 0),
-    Position = UDim2.new(0, 20, 0.5, -10), -- Nằm bên trái, ngay phía dưới nút Fly (30px chiều cao + 5px khoảng cách)
+    Position = UDim2.new(0, 20, 0.5, -10),
     BackgroundTransparency = 1, 
     Visible = false, 
     ZIndex = 80,
@@ -689,8 +689,12 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
                 if part:IsA("BasePart") then part.Anchored = true end
             end
         end
-        FreecamCFrame = Camera.CFrame
-        local x, y, z = Camera.CFrame:ToOrientation()
+        
+        -- Khởi tạo vị trí & góc quay Freecam phẳng ban đầu
+        local camCF = Camera.CFrame
+        FreecamCFrame = CFrame.new(camCF.Position)
+        
+        local x, y, z = camCF:ToOrientation()
         freecamYaw = y
         freecamPitch = x
         Camera.CameraType = Enum.CameraType.Scriptable
@@ -924,7 +928,7 @@ local function GetPlayerColor(p)
 end
 
 --==================================================
--- RENDER LOOP (SỬA LỖI FLY DI CHUYỂN BỊ NGHIÊNG/RUNG)
+-- RENDER LOOP (ĐÃ ĐƯỢC FIX HOÀN TOÀN FREECAM)
 --==================================================
 
 local function GetLine(p)
@@ -953,10 +957,9 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    -- SỬA LỖI FLY: BẢO ĐẢM DI CHUYỂN THẲNG HÀNG TRÊN NỀN PHẲNG $X,Z$ VÀ KHÔNG BỊ RUNG
+    -- FIX FLY: BẢO ĐẢM DI CHUYỂN PHẲNG VÀ KHÔNG BỊ RUNG
     if Settings.Fly and isFlyingActive and myRoot and hum then
         local moveDir = hum.MoveDirection
-        -- Loại bỏ hoàn toàn độ nghiêng trục Y khỏi Cần Gạt Di Chuyển
         local flatMoveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
         if flatMoveDir.Magnitude > 0 then
             flatMoveDir = flatMoveDir.Unit
@@ -965,7 +968,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         local flySpeed = Settings.Speed.Enabled and Settings.Speed.Value or 50
         local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
         
-        -- Triệt tiêu gia tốc trọng lực & rung lắc
         myRoot.AssemblyLinearVelocity = Vector3.new(flatMoveDir.X * flySpeed, ySpeed, flatMoveDir.Z * flySpeed)
     end
 
@@ -975,7 +977,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- SỬA LỖI FREECAM: CỐ ĐỊNH PHƯƠNG DI CHUYỂN SONG SONG MẶT ĐẤT
+    -- FIX CHÍNH LỖI FREECAM: TÁCH BỆT TOÀN BỘ VỊ TRÍ VÀ GÓC ROTATION ĐỂ TRÁNH TỰ XOAY KHI DI CHUYỂN
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -985,17 +987,22 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
 
         local speed = 1.5
+        
+        -- Tạo góc xoay độc lập hoàn toàn cho camera
         local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
         
-        -- Chỉ lấy hướng phẳng (Horizontal) của Camera
-        local flatYawCFrame = CFrame.Angles(0, freecamYaw, 0)
-        local rightVec = flatYawCFrame.RightVector
-        local forwardVec = flatYawCFrame.LookVector
+        -- Chỉ lấy hướng đi thẳng nằm ngang theo yaw để tránh bị dốc nghiêng theo pitch
+        local moveYawCFrame = CFrame.Angles(0, freecamYaw, 0)
+        local rightVec = moveYawCFrame.RightVector
+        local forwardVec = moveYawCFrame.LookVector
 
         local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
-        FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
+        -- Cập nhật tọa độ CFrame thuần (không dính góc xoay vào biến lưu tọa độ)
+        local posDelta = (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
+        FreecamCFrame = FreecamCFrame + posDelta
         
+        -- Gán CFrame cho camera: Tọa độ mới + Góc nhìn
         Camera.CFrame = CFrame.new(FreecamCFrame.Position) * rotCFrame
     end
 
@@ -1169,4 +1176,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI - Updated Version Fully Loaded!")
+print("ToanCreator GUI - Freecam Fixed Successfully!")
