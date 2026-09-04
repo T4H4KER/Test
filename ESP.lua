@@ -871,7 +871,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         local rightVec = rotCFrame.RightVector
         local forwardVec = rotCFrame.LookVector
 
-        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
+        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 40 or 0)
 
         FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed, 0)
         
