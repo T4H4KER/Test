@@ -405,7 +405,7 @@ local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange
 end
 
 --==================================================
--- MOVE TAB SETUP
+-- MOVE TAB SETUP & FLY TOGGLE BUTTON
 --==================================================
 
 CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
@@ -430,7 +430,41 @@ end
 BindPressHold(FlyUp, function(st) flyUpHeld = st end)
 BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
-CreateCheckbox("Fly", MovePage, "fly", function(v) Settings.Fly = v; FlyControls.Visible = v end)
+-- NÚT FLY TOGGLE NẰM Ở GIỮA GÓC BÊN PHẢI (Nền xanh nước biển + Chữ trắng "fly")
+local FlyToggleBtn = Create("TextButton", {
+    Size = UDim2.new(0, 55, 0, 30),
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.new(1, -10, 0.5, 0),
+    BackgroundColor3 = COLORS.Accent,
+    Text = "fly",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 13,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 80,
+    Parent = ScreenGui
+})
+AddCorner(FlyToggleBtn, 6)
+AddStroke(FlyToggleBtn, Color3.fromRGB(255, 255, 255), 1)
+
+local function SetFlyState(enabled)
+    Settings.Fly = enabled
+    FlyControls.Visible = enabled
+    FlyToggleBtn.BackgroundColor3 = enabled and COLORS.Green or COLORS.Accent
+    if UI_Controls["Fly"] then
+        UI_Controls["Fly"].SetState(enabled)
+    end
+end
+
+FlyToggleBtn.MouseButton1Click:Connect(function()
+    SetFlyState(not Settings.Fly)
+end)
+
+CreateCheckbox("Fly", MovePage, "fly", function(v)
+    Settings.Fly = v
+    FlyControls.Visible = v
+    FlyToggleBtn.BackgroundColor3 = v and COLORS.Green or COLORS.Accent
+end)
+
 CreateCheckbox("Noclip", MovePage, "noclip", function(v) Settings.Noclip = v end)
 CreateCheckbox("NoGravity", MovePage, "no gravity", function(v)
     Settings.NoGravity = v
@@ -566,7 +600,7 @@ LocTpBtn.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- ESP TAB SETUP
+-- ESP TAB SETUP & CLEANUP WHEN PLAYER LEAVES
 --==================================================
 
 CreateESPCombo("PlayerESP", ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
@@ -613,6 +647,17 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
     end
 end)
 
+-- TỰ ĐỘNG XÓA TRACE LINE KHI NGƯỜI CHƠI THOÁT SERVER
+Players.PlayerRemoving:Connect(function(player)
+    if TraceLines[player] then
+        pcall(function()
+            TraceLines[player]:Remove()
+        end)
+        TraceLines[player] = nil
+    end
+    PlayerStats[player] = nil
+end)
+
 --==================================================
 -- OPTION TAB SETUP & FIXES
 --==================================================
@@ -627,7 +672,7 @@ CreateCheckbox("FixLag", OptionPage, "fixlag", function(v)
     end
 end)
 
--- FIX 1: AUTO EXECUTE HOẠT ĐỘNG KHI CHUYỂN SERVER
+-- AUTO EXECUTE HOẠT ĐỘNG KHI CHUYỂN SERVER
 local queueOnTeleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
 
 CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
@@ -688,6 +733,8 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
     if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
 
+    FlyToggleBtn.BackgroundColor3 = Settings.Fly and COLORS.Green or COLORS.Accent
+
     -- Trạng thái Reset nhân vật/camera
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -707,7 +754,6 @@ AddCorner(ResetBtn, 6)
 local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Accent, Text = "Config", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
 AddCorner(ConfigBtn, 6)
 
--- FIX 2: RESET DEFAULT CẬP NHẬT TRỰC TIẾP LÊN UI
 ResetBtn.MouseButton1Click:Connect(function()
     ShowConfirm("Khôi phục tất cả cài đặt về mặc định?", function()
         ApplySettingsToUI(DefaultSettings)
@@ -762,7 +808,6 @@ local function RefreshConfigList()
     end
 end
 
--- FIX 3: TỰ ĐỘNG GHI FILE KHI TẠO CONFIG MỚI
 SaveConfigBtn.MouseButton1Click:Connect(function()
     local name = ConfigNameInput.Text
     if name ~= "" then
@@ -784,9 +829,10 @@ end)
 -- DISTANCE & ADVANCED ANOMALY DETECTOR
 --==================================================
 
+-- TÊN ĐỔI MÀU TÍM TRONG 3 GIÂY (ĐÃ SỬA TỪ 2 SANG 3S)
 local function TriggerPurple(p)
     if not PlayerStats[p] then PlayerStats[p] = {} end
-    PlayerStats[p].PurpleEndTime = os.clock() + 2
+    PlayerStats[p].PurpleEndTime = os.clock() + 3
 end
 
 local function GetPlayerColor(p)
@@ -1022,10 +1068,10 @@ MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false; MiniBu
 
 CloseButton.MouseButton1Click:Connect(function()
     ShowConfirm("Đóng Script ToanCreator?", function()
-        for _, l in pairs(TraceLines) do l:Remove() end
+        for _, l in pairs(TraceLines) do pcall(function() l:Remove() end) end
         if workspace:FindFirstChild("ToanCreator_Markers") then workspace.ToanCreator_Markers:Destroy() end
         ScreenGui:Destroy()
     end)
 end)
 
-print("ToanCreator GUI v8 - Option Fixed Successfully!")
+print("ToanCreator GUI v8 - Integrated Fixes Successfully!")
