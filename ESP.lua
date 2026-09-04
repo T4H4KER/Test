@@ -23,6 +23,25 @@ pcall(function()
 end)
 
 --==================================================
+-- AUTO EXECUTE / TELEPORT QUEUE FIX
+--==================================================
+local function GetQueueOnTeleport()
+    return queue_on_teleport 
+        or (syn and syn.queue_on_teleport) 
+        or (fluxus and fluxus.queue_on_teleport)
+        or (sentinel and sentinel.queue_on_teleport)
+        or (krnl and krnl.queue_on_teleport)
+        or (delta and delta.queue_on_teleport)
+        or (codex and codex.queue_on_teleport)
+end
+
+-- Script loader dùng để chạy lại khi chuyển server
+local SCRIPT_LOADER_CODE = [[
+    repeat task.wait() until game:IsLoaded()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"))()
+]]
+
+--==================================================
 -- CONFIG & FILE STORAGE SYSTEM
 --==================================================
 
@@ -143,6 +162,14 @@ end
 
 LoadSavedConfigsFromFile()
 
+-- Xử lý đăng ký AutoExecute nếu đã lưu trước đó
+if SavedConfigs["AutoExecute_State"] and SavedConfigs["AutoExecute_State"].AutoExecute then
+    local qFunc = GetQueueOnTeleport()
+    if qFunc then
+        pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
+    end
+end
+
 -- Freecam Variables
 local FreecamCFrame = CFrame.new()
 local freecamYaw = 0
@@ -151,7 +178,7 @@ local freecamPitch = 0
 -- System Tracking
 local PlayerStats = {}
 local TraceLines = {}
-local UI_Controls = {} -- Lưu trữ UI controls để reset giao diện
+local UI_Controls = {}
 
 --==================================================
 -- UTILS & SCREEN GUI
@@ -430,7 +457,7 @@ end
 BindPressHold(FlyUp, function(st) flyUpHeld = st end)
 BindPressHold(FlyDown, function(st) flyDownHeld = st end)
 
--- NÚT FLY TOGGLE NẰM Ở BÊN TRÁI MÀN HÌNH (CÁCH 20PX) + CHỮ TRẮNG VIỀN ĐEN
+-- NÚT FLY TOGGLE NẰM Ở BÊN TRÁI MÀN HÌNH (CÁCH 20PX) + MẶC ĐỊNH ẨN (VISIBLE = FALSE)
 local FlyToggleBtn = Create("TextButton", {
     Size = UDim2.new(0, 55, 0, 30),
     AnchorPoint = Vector2.new(0, 0.5),
@@ -440,29 +467,29 @@ local FlyToggleBtn = Create("TextButton", {
     TextColor3 = Color3.new(1, 1, 1),
     TextSize = 13,
     Font = Enum.Font.GothamBold,
+    Visible = false, -- MẶC ĐỊNH ẨN, CHỈ HIỆN KHI CHECKBOX DƯỢC TÍCH
     ZIndex = 80,
     Parent = ScreenGui
 })
 AddCorner(FlyToggleBtn, 6)
 AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
 
-local function SetFlyState(enabled)
-    Settings.Fly = enabled
-    FlyControls.Visible = enabled
-    FlyToggleBtn.BackgroundColor3 = enabled and COLORS.Green or COLORS.Accent
-    if UI_Controls["Fly"] then
-        UI_Controls["Fly"].SetState(enabled)
-    end
-end
-
+local isFlyingActive = false
 FlyToggleBtn.MouseButton1Click:Connect(function()
-    SetFlyState(not Settings.Fly)
+    isFlyingActive = not isFlyingActive
+    FlyControls.Visible = isFlyingActive
+    FlyToggleBtn.BackgroundColor3 = isFlyingActive and COLORS.Green or COLORS.Accent
 end)
 
+-- CHECKBOX FLY TRÊN MENU: BẬT -> HIỆN NÚT FLY; TẮT -> ẨN NÚT FLY & NÚT ĐIỀU KHIỂN
 CreateCheckbox("Fly", MovePage, "fly", function(v)
     Settings.Fly = v
-    FlyControls.Visible = v
-    FlyToggleBtn.BackgroundColor3 = v and COLORS.Green or COLORS.Accent
+    FlyToggleBtn.Visible = v
+    if not v then
+        isFlyingActive = false
+        FlyControls.Visible = false
+        FlyToggleBtn.BackgroundColor3 = COLORS.Accent
+    end
 end)
 
 CreateCheckbox("Noclip", MovePage, "noclip", function(v) Settings.Noclip = v end)
@@ -647,19 +674,16 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
     end
 end)
 
--- TỰ ĐỘNG XÓA TRACE LINE KHI NGƯỜI CHƠI THOÁT SERVER
 Players.PlayerRemoving:Connect(function(player)
     if TraceLines[player] then
-        pcall(function()
-            TraceLines[player]:Remove()
-        end)
+        pcall(function() TraceLines[player]:Remove() end)
         TraceLines[player] = nil
     end
     PlayerStats[player] = nil
 end)
 
 --==================================================
--- OPTION TAB SETUP & FIXES
+-- OPTION TAB SETUP & AUTO EXECUTE FIX
 --==================================================
 
 CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
@@ -672,17 +696,17 @@ CreateCheckbox("FixLag", OptionPage, "fixlag", function(v)
     end
 end)
 
--- AUTO EXECUTE HOẠT ĐỘNG KHI CHUYỂN SERVER
-local queueOnTeleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-
+-- AUTO EXECUTE ĐÃ ĐƯỢC CẢI TIẾN TRUY VẤN EXECUTOR VÀ LƯU VÀO STATE FILE
 CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     Settings.AutoExecute = v
-    if v and queueOnTeleport then
-        local scriptSource = [[
-            repeat task.wait() until game:IsLoaded()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"))()
-        ]]
-        pcall(function() queueOnTeleport(scriptSource) end)
+    
+    -- Lưu trạng thái vào file config để tự khôi phục khi đổi server
+    SavedConfigs["AutoExecute_State"] = { AutoExecute = v }
+    SaveConfigsToFile()
+
+    local qFunc = GetQueueOnTeleport()
+    if v and qFunc then
+        pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
     end
 end)
 
@@ -733,9 +757,12 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
     if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
 
-    FlyToggleBtn.BackgroundColor3 = Settings.Fly and COLORS.Green or COLORS.Accent
+    FlyToggleBtn.Visible = Settings.Fly
+    if not Settings.Fly then
+        isFlyingActive = false
+        FlyControls.Visible = false
+    end
 
-    -- Trạng thái Reset nhân vật/camera
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if hum then
         hum.WalkSpeed = 16
@@ -785,26 +812,28 @@ Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = ConfigScroll })
 local function RefreshConfigList()
     for _, c in ipairs(ConfigScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
     for name, cfgData in pairs(SavedConfigs) do
-        local item = Create("Frame", { Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = COLORS.Panel, ZIndex = 33, Parent = ConfigScroll })
-        AddCorner(item, 4)
+        if name ~= "AutoExecute_State" then
+            local item = Create("Frame", { Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = COLORS.Panel, ZIndex = 33, Parent = ConfigScroll })
+            AddCorner(item, 4)
 
-        local nameLbl = Create("TextLabel", { Size = UDim2.new(1, -55, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 34, Parent = item })
-        local loadBtn = Create("TextButton", { Size = UDim2.new(0, 42, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = COLORS.Accent, Text = "Load", TextColor3 = Color3.new(1,1,1), TextSize = 9, Font = Enum.Font.GothamBold, ZIndex = 34, Parent = item })
-        AddCorner(loadBtn, 3)
+            local nameLbl = Create("TextLabel", { Size = UDim2.new(1, -55, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 34, Parent = item })
+            local loadBtn = Create("TextButton", { Size = UDim2.new(0, 42, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = COLORS.Accent, Text = "Load", TextColor3 = Color3.new(1,1,1), TextSize = 9, Font = Enum.Font.GothamBold, ZIndex = 34, Parent = item })
+            AddCorner(loadBtn, 3)
 
-        loadBtn.MouseButton1Click:Connect(function()
-            ApplySettingsToUI(cfgData)
-            ConfigOverlay.Visible = false
-            print("Loaded Config: "..name)
-        end)
-
-        BindLongPress(item, 1, function()
-            ShowConfirm("Xóa config '"..name.."'?", function()
-                SavedConfigs[name] = nil
-                SaveConfigsToFile()
-                RefreshConfigList()
+            loadBtn.MouseButton1Click:Connect(function()
+                ApplySettingsToUI(cfgData)
+                ConfigOverlay.Visible = false
+                print("Loaded Config: "..name)
             end)
-        end)
+
+            BindLongPress(item, 1, function()
+                ShowConfirm("Xóa config '"..name.."'?", function()
+                    SavedConfigs[name] = nil
+                    SaveConfigsToFile()
+                    RefreshConfigList()
+                end)
+            end)
+        end
     end
 end
 
@@ -888,7 +917,8 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    if Settings.Fly and myRoot and hum then
+    -- CHỈ BAY KHI CẢ CHECKBOX TRÊN MENU VÀ NÚT TOGGLE NGOÀI MÀN HÌNH ĐỀU BẬT
+    if Settings.Fly and isFlyingActive and myRoot and hum then
         local moveDir = hum.MoveDirection
         local flyVel = moveDir * 50
         local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
@@ -897,7 +927,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     if Settings.NoGravity and myRoot then
         local bv = myRoot:FindFirstChild("NoGravForce") or Create("BodyVelocity", { Name = "NoGravForce", MaxForce = Vector3.new(0, 100000, 0), Velocity = Vector3.zero, Parent = myRoot })
-    elseif myRoot and myRoot:FindFirstChild("NoGravForce") and not Settings.Fly then
+    elseif myRoot and myRoot:FindFirstChild("NoGravForce") and not isFlyingActive then
         myRoot.NoGravForce:Destroy()
     end
 
@@ -1073,4 +1103,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v8 - Fly Button Moved to Left 20px!")
+print("ToanCreator GUI - V 5.0")
