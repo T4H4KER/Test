@@ -1,7 +1,6 @@
 --[[
-    ToanCreator GUI - Option Bug Fixes & Upgrades
+    ToanCreator GUI - Freecam Direction & Tilt Bug Fix
     Mobile Optimized
-    Credit: ToanCreator
 ]]
 
 local Players = game:GetService("Players")
@@ -170,8 +169,8 @@ if SavedConfigs["AutoExecute_State"] and SavedConfigs["AutoExecute_State"].AutoE
     end
 end
 
--- Freecam Variables
-local FreecamCFrame = CFrame.new()
+-- Freecam State Variables
+local FreecamPos = Vector3.zero
 local freecamYaw = 0
 local freecamPitch = 0
 
@@ -216,7 +215,6 @@ local Main = Create("Frame", {
 AddCorner(Main, 10)
 AddStroke(Main, Color3.fromRGB(60, 60, 75), 1.5)
 
--- SỬA LỖI UI DRAG: TÁCH BIỆT MÀN HÌNH CAMERA KHI KÉO UI
 local function MakeDraggable(frame, handle, canDragCheck)
     local dragging, dragStart, startPos
     handle = handle or frame
@@ -227,7 +225,6 @@ local function MakeDraggable(frame, handle, canDragCheck)
             dragStart = input.Position
             startPos = frame.Position
             
-            -- Khóa điều hướng camera trong thời gian kéo UI
             local touchConn
             touchConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
@@ -442,7 +439,6 @@ end
 CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
 CreateCombinedInput("Jump", MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
 
--- NÚT FLY TOGGLE NẰM BÊN TRÁI MÀN HÌNH
 local FlyToggleBtn = Create("TextButton", {
     Size = UDim2.new(0, 55, 0, 30),
     AnchorPoint = Vector2.new(0, 0.5),
@@ -459,7 +455,6 @@ local FlyToggleBtn = Create("TextButton", {
 AddCorner(FlyToggleBtn, 6)
 AddStroke(FlyToggleBtn, Color3.fromRGB(0, 0, 0), 1.5)
 
--- CẢI TIẾN 2 NÚT LÊN - XUỐNG
 local FlyControls = Create("Frame", { 
     Size = UDim2.new(0, 55, 0, 55), 
     AnchorPoint = Vector2.new(0, 0),
@@ -660,7 +655,7 @@ LocTpBtn.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- ESP TAB SETUP & CLEANUP WHEN PLAYER LEAVES
+-- ESP TAB SETUP & FREECAM INPUT SEPARATION
 --==================================================
 
 CreateESPCombo("PlayerESP", ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
@@ -669,12 +664,21 @@ CreateESPCombo("PlayerTrace", ESPPage, "player trace", Settings.PlayerTraceColor
 
 CreateCheckbox("DistanceCheck", ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
+-- FIX FREECAM TỰ XOAY KHI RỜ CHẠY TRÊN MOBILE
 UserInputService.InputChanged:Connect(function(input, gameProcessed)
     if not Settings.Freecam then return end
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+    
+    -- Chỉ nhận quay camera khi chạm bên nửa phải màn hình (tránh việc bấm nút joystick di chuyển bị quay)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Delta
         freecamYaw = freecamYaw - delta.X * 0.008
-        freecamPitch = math.clamp(freecamPitch - delta.Y * 0.008, math.rad(-89), math.rad(89))
+        freecamPitch = math.clamp(freecamPitch - delta.Y * 0.008, math.rad(-88), math.rad(88))
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        if input.Position.X > (Camera.ViewportSize.X * 0.35) then
+            local delta = input.Delta
+            freecamYaw = freecamYaw - delta.X * 0.008
+            freecamPitch = math.clamp(freecamPitch - delta.Y * 0.008, math.rad(-88), math.rad(88))
+        end
     end
 end)
 
@@ -690,11 +694,8 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
             end
         end
         
-        -- Khởi tạo vị trí & góc quay Freecam phẳng ban đầu
-        local camCF = Camera.CFrame
-        FreecamCFrame = CFrame.new(camCF.Position)
-        
-        local x, y, z = camCF:ToOrientation()
+        FreecamPos = Camera.CFrame.Position
+        local x, y, z = Camera.CFrame:ToOrientation()
         freecamYaw = y
         freecamPitch = x
         Camera.CameraType = Enum.CameraType.Scriptable
@@ -744,7 +745,6 @@ CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     end
 end)
 
--- MOBILE SHIFT LOCK UI BUTTON (15px) - ĐỔI TÊN THÀNH "shift lock"
 local ShiftLockBtn = Create("ImageButton", {
     Size = UDim2.new(0, 15, 0, 15),
     Position = UDim2.new(1, -20, 1, -20),
@@ -768,12 +768,10 @@ ShiftLockBtn.MouseButton1Click:Connect(function()
     ShiftLockBtn.BackgroundColor3 = shiftLockActive and COLORS.Accent or COLORS.Panel
 end)
 
--- THÊM TÍNH NĂNG "MENU LOCK"
 CreateCheckbox("MenuLock", OptionPage, "menu lock", function(v)
     Settings.MenuLock = v
 end)
 
--- HÀM ÁP DỤNG SETTINGS VÀO GIAO DIỆN UI
 local function ApplySettingsToUI(newSettings)
     for k, v in pairs(newSettings) do Settings[k] = v end
 
@@ -811,7 +809,7 @@ local function ApplySettingsToUI(newSettings)
     end
 end
 
--- NÚT RESET & CONFIG
+-- RESET & CONFIG
 local OptionBtnHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 36), BackgroundTransparency = 1, Parent = OptionPage })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), Parent = OptionBtnHolder })
 
@@ -824,11 +822,9 @@ AddCorner(ConfigBtn, 6)
 ResetBtn.MouseButton1Click:Connect(function()
     ShowConfirm("Khôi phục tất cả cài đặt về mặc định?", function()
         ApplySettingsToUI(DefaultSettings)
-        print("Settings successfully reset to default!")
     end)
 end)
 
--- POPUP CONFIG & FILE SAVING
 local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 30, Parent = ScreenGui })
 local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 31, Parent = ConfigOverlay })
 AddCorner(ConfigBoard, 8)
@@ -863,7 +859,6 @@ local function RefreshConfigList()
             loadBtn.MouseButton1Click:Connect(function()
                 ApplySettingsToUI(cfgData)
                 ConfigOverlay.Visible = false
-                print("Loaded Config: "..name)
             end)
 
             BindLongPress(item, 1, function()
@@ -928,7 +923,7 @@ local function GetPlayerColor(p)
 end
 
 --==================================================
--- RENDER LOOP (ĐÃ ĐƯỢC FIX HOÀN TOÀN FREECAM)
+-- RENDER LOOP (FIX HOÀN TOÀN HƯỚNG BẤM JOYSTICK VÀ LƯỚT QUAY)
 --==================================================
 
 local function GetLine(p)
@@ -957,7 +952,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    -- FIX FLY: BẢO ĐẢM DI CHUYỂN PHẲNG VÀ KHÔNG BỊ RUNG
     if Settings.Fly and isFlyingActive and myRoot and hum then
         local moveDir = hum.MoveDirection
         local flatMoveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
@@ -977,7 +971,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FIX CHÍNH LỖI FREECAM: TÁCH BỆT TOÀN BỘ VỊ TRÍ VÀ GÓC ROTATION ĐỂ TRÁNH TỰ XOAY KHI DI CHUYỂN
+    -- ĐÃ SỬA LỖI TÍNH TOÁN FREECAM TẤT CẢ TRỤC DI CHUYỂN
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
         
@@ -987,23 +981,26 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
 
         local speed = 1.5
+
+        -- Tính toán góc Yaw phẳng (chỉ tính xoay ngang)
+        local yawCFrame = CFrame.Angles(0, freecamYaw, 0)
         
-        -- Tạo góc xoay độc lập hoàn toàn cho camera
-        local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
-        
-        -- Chỉ lấy hướng đi thẳng nằm ngang theo yaw để tránh bị dốc nghiêng theo pitch
-        local moveYawCFrame = CFrame.Angles(0, freecamYaw, 0)
-        local rightVec = moveYawCFrame.RightVector
-        local forwardVec = moveYawCFrame.LookVector
+        -- Lấy đúng hướng Tiến/Lùi và Trái/Phải theo Yaw chuẩn không nghiêng mặt đất
+        local forwardDir = yawCFrame.LookVector
+        local rightDir = yawCFrame.RightVector
+
+        -- Bấm nút di chuyển đi đúng hướng
+        local moveX = moveVector.X
+        local moveZ = moveVector.Z -- trục Z của GetMoveVector là Tiến(Âm) / Lùi(Dương)
 
         local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
-        -- Cập nhật tọa độ CFrame thuần (không dính góc xoay vào biến lưu tọa độ)
-        local posDelta = (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
-        FreecamCFrame = FreecamCFrame + posDelta
+        -- Cộng dồn tọa độ di chuyển chuẩn mặt phẳng
+        FreecamPos = FreecamPos + (rightDir * (moveX * speed)) + (forwardDir * (-moveZ * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
         
-        -- Gán CFrame cho camera: Tọa độ mới + Góc nhìn
-        Camera.CFrame = CFrame.new(FreecamCFrame.Position) * rotCFrame
+        -- Tạo CFrame chuẩn kết hợp giữa vị trí và góc nhìn
+        local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
+        Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
 
     if Settings.Fullbright then
@@ -1143,12 +1140,10 @@ task.spawn(function()
     end
 end)
 
--- MENU LOCK: KHÓA KÉO DI CHUYỂN KHI BẬT
 MakeDraggable(MiniButton, MiniButton, function()
     return not Settings.MenuLock
 end)
 
--- MENU LOCK: XỬ LÝ NHẤP ĐÚP (2 LẦN) ĐỂ MỞ BẢNG UI
 local lastClickTime = 0
 MiniButton.MouseButton1Click:Connect(function()
     if Settings.MenuLock then
@@ -1176,4 +1171,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI - Freecam Fixed Successfully!")
+print("ToanCreator GUI - Mobile Freecam Fully Fixed!")
