@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Extended Version
+    ToanCreator GUI - Fixed Freecam, ShiftLock & Distance Check (50 studs)
     Mobile Optimized (270x360)
     Credit: ToanCreator
 ]]
@@ -12,6 +12,13 @@ local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Roblox Player Control Module cho Mobile/Touch
+local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts")
+local MasterControl = nil
+pcall(function()
+    MasterControl = require(PlayerScripts:WaitForChild("PlayerModule")):GetControls()
+end)
 
 --==================================================
 -- CONFIG & COLORS
@@ -65,9 +72,7 @@ local SelectedPlayer = nil
 local SelectedLocation = nil
 
 -- Freecam System Variables
-local TouchStart = nil
-local TouchRotStart = Vector2.zero
-local FreecamRot = Vector2.zero
+local FreecamCFrame = CFrame.new()
 
 -- System Tracking
 local PlayerStats = {}
@@ -92,7 +97,7 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_v5",
+    Name = "ToanCreatorGUI_v6",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -344,7 +349,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local PlayerTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpPlayerHolder })
 AddCorner(PlayerTpBtn, 4)
 
-local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpPlayerHolder })
+local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = PlayerTpHolder })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = PlayerScrollList })
 
 local function RefreshPlayerList()
@@ -371,7 +376,7 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- CONFIRM OVERLAY DIỄN HOẠT
+-- CONFIRM OVERLAY
 local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 20, Parent = ScreenGui })
 local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 21, Parent = ConfirmOverlay })
 AddCorner(ConfirmBox, 8)
@@ -416,7 +421,6 @@ local function RefreshLocationList()
         AddCorner(lBtn, 3)
         lBtn.MouseButton1Click:Connect(function() SelectedLocation = loc; RefreshLocationList() end)
         
-        -- Nhấn giữ 1s để xóa Location
         BindLongPress(lBtn, 1, function()
             ShowConfirm("Bạn muốn xóa vị trí '"..loc.Name.."'?", function()
                 if loc.Part then loc.Part:Destroy() end
@@ -443,7 +447,6 @@ SetBtn.MouseButton1Click:Connect(function()
 
     local folder = workspace:FindFirstChild("ToanCreator_Markers") or Create("Folder", { Name = "ToanCreator_Markers", Parent = workspace })
     
-    -- Tạo khối vuông Marker rực rỡ kèm ESP Billboard
     local part = Create("Part", { Name = name, Size = Vector3.new(1.5, 1.5, 1.5), Position = myRoot.Position, Anchored = true, CanCollide = false, Material = Enum.Material.Neon, Color = Color3.fromRGB(0, 255, 170), Parent = folder })
     local bill = Create("BillboardGui", { Size = UDim2.new(0, 100, 0, 30), StudsOffset = Vector3.new(0, 2, 0), AlwaysOnTop = true, Adornee = part, Parent = part })
     Create("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "📍 "..name, TextColor3 = Color3.fromRGB(0, 255, 170), TextStrokeTransparency = 0, TextSize = 11, Font = Enum.Font.GothamBold, Parent = bill })
@@ -473,7 +476,7 @@ CreateESPCombo(ESPPage, "player trace", Settings.PlayerTraceColor, function(c) S
 
 CreateCheckbox(ESPPage, "distance check", function(v) Settings.DistanceCheck = v end)
 
--- FREECAM
+-- FREECAM CONFIG & LOGIC
 CreateCheckbox(ESPPage, "freecam", function(v)
     Settings.Freecam = v
     FlyControls.Visible = v
@@ -485,6 +488,7 @@ CreateCheckbox(ESPPage, "freecam", function(v)
                 if part:IsA("BasePart") then part.Anchored = true end
             end
         end
+        FreecamCFrame = Camera.CFrame
         Camera.CameraType = Enum.CameraType.Scriptable
     else
         if char then
@@ -496,32 +500,6 @@ CreateCheckbox(ESPPage, "freecam", function(v)
         if char and char:FindFirstChildOfClass("Humanoid") then
             Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
         end
-    end
-end)
-
--- XOAY MÀN HÌNH FREECAM MƯỢT MÀ
-UserInputService.InputBegan:Connect(function(input)
-    if Settings.Freecam and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
-        TouchStart = input.Position
-        local x, y, _ = Camera.CFrame:ToOrientation()
-        TouchRotStart = Vector2.new(math.deg(x), math.deg(y))
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if Settings.Freecam and TouchStart and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-        local delta = input.Position - TouchStart
-        FreecamRot = Vector2.new(
-            math.clamp(TouchRotStart.X - (delta.Y * 0.25), -80, 80),
-            TouchRotStart.Y - (delta.X * 0.25)
-        )
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position) * CFrame.Angles(0, math.rad(FreecamRot.Y), 0) * CFrame.Angles(math.rad(FreecamRot.X), 0, 0)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        TouchStart = nil
     end
 end)
 
@@ -540,10 +518,28 @@ CreateCheckbox(OptionPage, "fixlag", function(v)
 end)
 CreateCheckbox(OptionPage, "auto execute", function(v) Settings.AutoExecute = v end)
 
--- TÍNH NĂNG LOCKS (SHIFT LOCK)
+-- MOBILE SHIFT LOCK UI BUTTON
+local ShiftLockBtn = Create("ImageButton", {
+    Size = UDim2.new(0, 45, 0, 45),
+    Position = UDim2.new(1, -60, 0.5, -90),
+    BackgroundColor3 = COLORS.Panel,
+    Image = "rbxassetid://6031068433",
+    Visible = false,
+    ZIndex = 90,
+    Parent = ScreenGui
+})
+AddCorner(ShiftLockBtn, 22)
+AddStroke(ShiftLockBtn, COLORS.Accent, 1.5)
+
 CreateCheckbox(OptionPage, "locks", function(v)
     Settings.ShiftLock = v
-    UserInputService.MouseBehavior = v and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default
+    ShiftLockBtn.Visible = v
+end)
+
+local shiftLockActive = false
+ShiftLockBtn.MouseButton1Click:Connect(function()
+    shiftLockActive = not shiftLockActive
+    ShiftLockBtn.BackgroundColor3 = shiftLockActive and COLORS.Accent or COLORS.Panel
 end)
 
 -- NÚT RESET & CONFIG DẠNG HÌNH CHỮ NHẬT
@@ -563,7 +559,7 @@ ResetBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- BOARD POPUP CONFIG SYSTEM
+-- POPUP CONFIG
 local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 30, Parent = ScreenGui })
 local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 31, Parent = ConfigOverlay })
 AddCorner(ConfigBoard, 8)
@@ -600,7 +596,6 @@ local function RefreshConfigList()
             print("Config loaded: "..name)
         end)
 
-        -- Nhấn giữ 1s để xóa Config
         BindLongPress(item, 1, function()
             ShowConfirm("Xóa config '"..name.."'?", function()
                 SavedConfigs[name] = nil
@@ -644,10 +639,17 @@ local function GetPlayerColor(p)
         return COLORS.Black
     end
 
+    -- Ưu tiên 1: Cảnh báo khoảng cách gần (Dưới hoặc bằng 50 studs)
+    if stats.NearPlayer then
+        return COLORS.Yellow
+    end
+
+    -- Ưu tiên 2: Cảnh báo tấn công/Sát thương
     if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
         return COLORS.Red
     end
 
+    -- Ưu tiên 3: Tốc độ/Nhảy bất thường
     if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
         return COLORS.Purple
     end
@@ -698,19 +700,27 @@ RunService.RenderStepped:Connect(function(deltaTime)
         myRoot.NoGravForce:Destroy()
     end
 
-    -- FREECAM CHUẨN XÁC THEO HƯỚNG MẮT NHÌN CAMERA
+    -- FIXED FREECAM MOVEMENT
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
-        local speed = 1.2
-        local moveDir = Vector3.zero
-
-        if hum then moveDir = hum.MoveDirection end
-
-        local ySpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
-        local camCFrame = Camera.CFrame
-        local targetVel = (camCFrame:VectorToWorldSpace(Vector3.new(moveDir.X, 0, moveDir.Z)) + Vector3.new(0, ySpeed, 0)) * speed
         
-        Camera.CFrame = camCFrame + targetVel
+        local moveVector = Vector3.zero
+        if MasterControl and MasterControl.GetMoveVector then
+            moveVector = MasterControl:GetMoveVector()
+        end
+
+        local speed = 1.5
+        local lookCFrame = Camera.CFrame
+        local rightVec = lookCFrame.RightVector
+        local forwardVec = lookCFrame.LookVector
+
+        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
+
+        FreecamCFrame = FreecamCFrame + (rightVec * (moveVector.X * speed)) + (forwardVec * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed, 0)
+        
+        -- Áp dụng rotation thực tế của màn hình cảm ứng vào vị trí Freecam
+        Camera.CFrame = CFrame.new(FreecamCFrame.Position) * (lookCFrame - lookCFrame.Position)
+        FreecamCFrame = Camera.CFrame
     end
 
     if Settings.Fullbright then
@@ -719,24 +729,54 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Lighting.GlobalShadows = false
     end
 
-    if Settings.ShiftLock then
-        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    -- FIXED SHIFTLOCK (MOBILE SUPPORT)
+    if Settings.ShiftLock and shiftLockActive and myRoot then
+        local lookVector = Camera.CFrame.LookVector
+        myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
     end
 
+    -- ESP & DISTANCE CHECK (<= 50 STUDS)
     local allPlayers = Players:GetPlayers()
-    for i, p in ipairs(allPlayers) do
+    
+    -- Clear trạng thái khoảng cách cũ
+    for _, p in ipairs(allPlayers) do
+        if not PlayerStats[p] then PlayerStats[p] = {} end
+        PlayerStats[p].NearPlayer = false
+    end
+
+    for i = 1, #allPlayers do
+        local p1 = allPlayers[i]
+        local char1 = p1.Character
+        local root1 = char1 and char1:FindFirstChild("HumanoidRootPart")
+
+        if root1 then
+            for j = i + 1, #allPlayers do
+                local p2 = allPlayers[j]
+                local char2 = p2.Character
+                local root2 = char2 and char2:FindFirstChild("HumanoidRootPart")
+
+                if root2 then
+                    local dist = (root1.Position - root2.Position).Magnitude
+                    if Settings.DistanceCheck and dist <= 50 then
+                        PlayerStats[p1].NearPlayer = true
+                        PlayerStats[p2].NearPlayer = true
+                    end
+                end
+            end
+        end
+    end
+
+    for _, p in ipairs(allPlayers) do
         if p ~= LocalPlayer and p.Character then
             local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
             local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
 
             if targetRoot and targetHum then
-                if not PlayerStats[p] then PlayerStats[p] = { LastPos = targetRoot.Position, LastHP = targetHum.Health } end
                 local stats = PlayerStats[p]
+                if not stats.LastPos then stats.LastPos = targetRoot.Position; stats.LastHP = targetHum.Health end
 
                 if deltaTime > 0 then
-                    local frameDist = (targetRoot.Position - stats.LastPos).Magnitude
-                    local realSpeed = frameDist / deltaTime
-
+                    local realSpeed = (targetRoot.Position - stats.LastPos).Magnitude / deltaTime
                     if realSpeed > 35 then TriggerPurple(p) end
                 end
                 stats.LastPos = targetRoot.Position
@@ -746,20 +786,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 if targetHum.Health < stats.LastHP then
                     TriggerPurple(p)
                     stats.LastHP = targetHum.Health
-                end
-
-                if Settings.DistanceCheck then
-                    for j = i + 1, #allPlayers do
-                        local otherP = allPlayers[j]
-                        if otherP ~= LocalPlayer and otherP.Character and otherP.Character:FindFirstChild("HumanoidRootPart") then
-                            local otherRoot = otherP.Character.HumanoidRootPart
-                            local pDistance = (targetRoot.Position - otherRoot.Position).Magnitude
-                            if pDistance <= 3.5 then
-                                TriggerPurple(p)
-                                TriggerPurple(otherP)
-                            end
-                        end
-                    end
                 end
 
                 local displayColor = GetPlayerColor(p)
@@ -848,4 +874,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v5 Updated Successfully!")
+print("ToanCreator GUI v6 (All Bugs Fixed) Loaded!")
