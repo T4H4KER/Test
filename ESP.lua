@@ -1,6 +1,6 @@
 --[[
     ToanCreator GUI - Dynamic Resizing, Auto Config & Distance Slider Upgrade
-    Mobile & PC Optimized
+    Mobile & PC Optimized (Color Pickers Removed, Fixed Default Colors & Red Name Damage Logic Enabled)
 ]]
 
 local Players = game:GetService("Players")
@@ -541,48 +541,6 @@ local function CreateCheckbox(id, parent, labelText, onToggle)
     return check
 end
 
-local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange, onToggle)
-    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
-    AddCorner(holder, 5)
-    Create("TextLabel", { Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
-
-    local colorBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -55, 0.5, -10), BackgroundColor3 = defaultColor, Text = "", Parent = holder })
-    AddCorner(colorBtn, 4)
-
-    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0.5, -10), BackgroundColor3 = COLORS.Button, Text = "", Parent = holder })
-    AddCorner(check, 4)
-    AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
-
-    local colors = { Color3.fromRGB(255,255,255), Color3.fromRGB(255,80,80), Color3.fromRGB(80,220,130), Color3.fromRGB(75,170,255), Color3.fromRGB(0,170,255) }
-    local idx = 1
-    colorBtn.MouseButton1Click:Connect(function()
-        idx = (idx % #colors) + 1
-        colorBtn.BackgroundColor3 = colors[idx]
-        if onColorChange then onColorChange(colors[idx]) end
-        SaveAutoConfig()
-    end)
-
-    local state = false
-    local function setCheckState(st, skipSave)
-        state = st
-        check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
-        check.Text = state and "✓" or ""
-        check.TextColor3 = Color3.new(1, 1, 1)
-        if onToggle then onToggle(state) end
-        if not skipSave then SaveAutoConfig() end
-    end
-
-    check.MouseButton1Click:Connect(function()
-        setCheckState(not state)
-    end)
-
-    UI_Controls[id] = {
-        SetState = function(s) setCheckState(s, true) end,
-        SetColor = function(c) colorBtn.BackgroundColor3 = c; if onColorChange then onColorChange(c) end end
-    }
-    return holder
-end
-
 -- DISTANCE SLIDER COMPONENT (MIN: 0, MAX: 100, DEFAULT: 50)
 local function CreateDistanceSlider(parent)
     local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 52), BackgroundColor3 = COLORS.Panel, Parent = parent })
@@ -814,7 +772,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local LocTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpLocHolder })
 AddCorner(LocTpBtn, 4)
 
-local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpLocHolder })
+local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = LocScrollList })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = LocScrollList })
 
 local function RefreshLocationList()
@@ -873,12 +831,12 @@ LocTpBtn.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- ESP TAB SETUP & FREECAM
+-- ESP TAB SETUP & FREECAM (COLOR PICKERS REMOVED)
 --==================================================
 
-CreateESPCombo("PlayerESP", ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
-CreateESPCombo("PlayerHitbox", ESPPage, "player hitbox", Settings.PlayerHitboxColor, function(c) Settings.PlayerHitboxColor = c end, function(s) Settings.PlayerHitbox = s end)
-CreateESPCombo("PlayerTrace", ESPPage, "player trace", Settings.PlayerTraceColor, function(c) Settings.PlayerTraceColor = c end, function(s) Settings.PlayerTrace = s end)
+CreateCheckbox("PlayerESP", ESPPage, "player ESP", function(s) Settings.PlayerESP = s end)
+CreateCheckbox("PlayerHitbox", ESPPage, "player hitbox", function(s) Settings.PlayerHitbox = s end)
+CreateCheckbox("PlayerTrace", ESPPage, "player trace", function(s) Settings.PlayerTrace = s end)
 
 CreateDistanceSlider(ESPPage)
 
@@ -978,9 +936,9 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["Noclip"] then UI_Controls["Noclip"].SetState(Settings.Noclip) end
     if UI_Controls["NoGravity"] then UI_Controls["NoGravity"].SetState(Settings.NoGravity) end
 
-    if UI_Controls["PlayerESP"] then UI_Controls["PlayerESP"].SetState(Settings.PlayerESP); UI_Controls["PlayerESP"].SetColor(Settings.PlayerESPColor) end
-    if UI_Controls["PlayerHitbox"] then UI_Controls["PlayerHitbox"].SetState(Settings.PlayerHitbox); UI_Controls["PlayerHitbox"].SetColor(Settings.PlayerHitboxColor) end
-    if UI_Controls["PlayerTrace"] then UI_Controls["PlayerTrace"].SetState(Settings.PlayerTrace); UI_Controls["PlayerTrace"].SetColor(Settings.PlayerTraceColor) end
+    if UI_Controls["PlayerESP"] then UI_Controls["PlayerESP"].SetState(Settings.PlayerESP) end
+    if UI_Controls["PlayerHitbox"] then UI_Controls["PlayerHitbox"].SetState(Settings.PlayerHitbox) end
+    if UI_Controls["PlayerTrace"] then UI_Controls["PlayerTrace"].SetState(Settings.PlayerTrace) end
 
     if UI_Controls["DistanceCheck"] then 
         UI_Controls["DistanceCheck"].SetState(Settings.DistanceCheck)
@@ -1122,6 +1080,7 @@ local function GetPlayerColor(p)
         return COLORS.Yellow
     end
 
+    -- Tên chuyển thành màu đỏ nếu gây sát thương/chết người trong 10s
     if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
         return COLORS.Red
     end
@@ -1267,8 +1226,10 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
                 if targetHum.JumpPower > 65 then TriggerPurple(p) end
 
+                -- Phát hiện bị mất máu -> Đổi sang màu đỏ/tím & Ghi nhận sự kiện sát thương
                 if targetHum.Health < stats.LastHP then
                     TriggerPurple(p)
+                    stats.KillerTime = os.clock()
                     stats.LastHP = targetHum.Health
                 end
 
@@ -1292,7 +1253,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     if not hb then
                         hb = Create("BoxHandleAdornment", { Name = "ToanHitboxAdorn", Size = Vector3.new(4, 5, 4), AlwaysOnTop = true, ZIndex = 10, Transparency = 0.5, Adornee = targetRoot, Parent = targetRoot })
                     end
-                    hb.Color3 = displayColor
+                    hb.Color3 = Settings.PlayerHitboxColor
                 elseif hb then
                     hb:Destroy()
                 end
@@ -1303,7 +1264,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     if onScreen then
                         line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                         line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Color = displayColor
+                        line.Color = Settings.PlayerTraceColor
                         line.Visible = true
                     else
                         line.Visible = false
