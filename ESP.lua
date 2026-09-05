@@ -740,16 +740,16 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- CONFIRM OVERLAY
-local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 20, Parent = ScreenGui })
-local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 21, Parent = ConfirmOverlay })
+-- CONFIRM OVERLAY (FIXED HIGHEST ZINDEX TO TOP LAYER)
+local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 100, Parent = ScreenGui })
+local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 101, Parent = ConfirmOverlay })
 AddCorner(ConfirmBox, 8)
 
-local ConfirmText = Create("TextLabel", { Size = UDim2.new(1, -10, 0, 40), Position = UDim2.new(0, 5, 0, 10), BackgroundTransparency = 1, Text = "Xác nhận?", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.GothamBold, TextWrapped = true, ZIndex = 22, Parent = ConfirmBox })
-local ConfirmYes = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(0, 15, 1, -34), BackgroundColor3 = COLORS.Red, Text = "Có", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 22, Parent = ConfirmBox })
+local ConfirmText = Create("TextLabel", { Size = UDim2.new(1, -10, 0, 40), Position = UDim2.new(0, 5, 0, 10), BackgroundTransparency = 1, Text = "Confirm Action?", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.GothamBold, TextWrapped = true, ZIndex = 102, Parent = ConfirmBox })
+local ConfirmYes = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(0, 15, 1, -34), BackgroundColor3 = COLORS.Red, Text = "Yes", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 102, Parent = ConfirmBox })
 AddCorner(ConfirmYes, 5)
 
-local ConfirmNo = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(1, -90, 1, -34), BackgroundColor3 = COLORS.Button, Text = "Không", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 22, Parent = ConfirmBox })
+local ConfirmNo = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(1, -90, 1, -34), BackgroundColor3 = COLORS.Button, Text = "No", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 102, Parent = ConfirmBox })
 AddCorner(ConfirmNo, 5)
 
 local currentConfirmAction = nil
@@ -764,7 +764,7 @@ ConfirmYes.MouseButton1Click:Connect(function()
     if currentConfirmAction then currentConfirmAction() end
 end)
 
--- TP LOCATION LIST
+-- TP LOCATION LIST (FIXED SCROLL LIST CONTAINER OVERFLOW)
 local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpLocHolder, 5)
 Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6, 0, 2), BackgroundTransparency = 1, Text = "tp location list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = TpLocHolder })
@@ -772,7 +772,7 @@ Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6
 local LocTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpLocHolder })
 AddCorner(LocTpBtn, 4)
 
-local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = LocScrollList })
+local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpLocHolder })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = LocScrollList })
 
 local function RefreshLocationList()
@@ -786,7 +786,7 @@ local function RefreshLocationList()
         lBtn.MouseButton1Click:Connect(function() SelectedLocation = loc; RefreshLocationList() end)
         
         BindLongPress(lBtn, 1, function()
-            ShowConfirm("Xóa vị trí '"..loc.Name.."'?", function()
+            ShowConfirm("Delete location '"..loc.Name.."'?", function()
                 if loc.Part then loc.Part:Destroy() end
                 table.remove(Locations, idx)
                 if SelectedLocation == loc then SelectedLocation = nil end
@@ -831,7 +831,7 @@ LocTpBtn.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- ESP TAB SETUP & FREECAM (COLOR PICKERS REMOVED)
+-- ESP TAB SETUP & FREECAM
 --==================================================
 
 CreateCheckbox("PlayerESP", ESPPage, "player ESP", function(s) Settings.PlayerESP = s end)
@@ -977,7 +977,7 @@ local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), Backgr
 AddCorner(ConfigBtn, 6)
 
 ResetBtn.MouseButton1Click:Connect(function()
-    ShowConfirm("Khôi phục tất cả cài đặt về mặc định?", function()
+    ShowConfirm("Restore all settings to default?", function()
         ApplySettingsToUI(DefaultSettings)
         SaveAutoConfig()
     end)
@@ -994,10 +994,10 @@ local ConfigClose = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Posit
 AddCorner(ConfigClose, 4)
 ConfigClose.MouseButton1Click:Connect(function() ConfigOverlay.Visible = false end)
 
-local ConfigNameInput = Create("TextBox", { Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 32), BackgroundColor3 = COLORS.Panel, Text = "", PlaceholderText = "Tên config mới...", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 32, Parent = ConfigBoard })
+local ConfigNameInput = Create("TextBox", { Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 32), BackgroundColor3 = COLORS.Panel, Text = "", PlaceholderText = "New config name...", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 32, Parent = ConfigBoard })
 AddCorner(ConfigNameInput, 5)
 
-local SaveConfigBtn = Create("TextButton", { Size = UDim2.new(1, -20, 0, 24), Position = UDim2.new(0, 10, 0, 62), BackgroundColor3 = COLORS.Green, Text = "+ Lưu Config Hiện Tại", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
+local SaveConfigBtn = Create("TextButton", { Size = UDim2.new(1, -20, 0, 24), Position = UDim2.new(0, 10, 0, 62), BackgroundColor3 = COLORS.Green, Text = "+ Save Current Config", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
 AddCorner(SaveConfigBtn, 5)
 
 local ConfigScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -20, 0, 130), Position = UDim2.new(0, 10, 0, 92), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 32, Parent = ConfigBoard })
@@ -1020,7 +1020,7 @@ local function RefreshConfigList()
         end)
 
         BindLongPress(item, 1, function()
-            ShowConfirm("Xóa config '"..name.."'?", function()
+            ShowConfirm("Delete config '"..name.."'?", function()
                 SavedConfigs[name] = nil
                 SaveConfigsToFile()
                 RefreshConfigList()
@@ -1080,7 +1080,6 @@ local function GetPlayerColor(p)
         return COLORS.Yellow
     end
 
-    -- Tên chuyển thành màu đỏ nếu gây sát thương/chết người trong 10s
     if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
         return COLORS.Red
     end
@@ -1158,7 +1157,8 @@ RunService.RenderStepped:Connect(function(deltaTime)
         local moveX = moveVector.X
         local moveZ = moveVector.Z
 
-        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 40 or 0)
+        -- FIXED FREECAM DOWNWARD SPEED MULTIPLIER
+        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
         FreecamPos = FreecamPos + (rightDir * (moveX * speed)) + (forwardDir * (-moveZ * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
         
@@ -1226,7 +1226,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
                 if targetHum.JumpPower > 65 then TriggerPurple(p) end
 
-                -- Phát hiện bị mất máu -> Đổi sang màu đỏ/tím & Ghi nhận sự kiện sát thương
                 if targetHum.Health < stats.LastHP then
                     TriggerPurple(p)
                     stats.KillerTime = os.clock()
@@ -1330,7 +1329,7 @@ end)
 MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false; MiniButton.Visible = true end)
 
 CloseButton.MouseButton1Click:Connect(function()
-    ShowConfirm("Đóng Script ToanCreator?", function()
+    ShowConfirm("Exit ToanCreator Script?", function()
         if getgenv then getgenv().ToanCreatorLoaded = false end
         for _, l in pairs(TraceLines) do pcall(function() l:Remove() end) end
         if workspace:FindFirstChild("ToanCreator_Markers") then workspace.ToanCreator_Markers:Destroy() end
