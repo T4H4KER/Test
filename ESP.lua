@@ -1,7 +1,7 @@
 --[[
     ToanCreator GUI - Dynamic Resizing, Auto Config & Distance Slider Upgrade
-    Mobile & PC Optimized (Color Pickers Removed, Fixed Default Colors & Red Name Damage Logic Enabled)
-    [UPDATED]: Enhanced Fullbright for Survival Games, Advanced FixLag & Mini Green FPS Label
+    Mobile & PC Optimized
+    [UPDATED]: Softened Fullbright & Dynamic Sync Color for Hitbox / Trace Lines
 ]]
 
 local Players = game:GetService("Players")
@@ -78,10 +78,10 @@ local DefaultSettings = {
     PlayerESPColor = Color3.fromRGB(255, 255, 255),
 
     PlayerHitbox = false,
-    PlayerHitboxColor = Color3.fromRGB(255, 80, 80),
+    PlayerHitboxColor = Color3.fromRGB(255, 255, 255),
 
     PlayerTrace = false,
-    PlayerTraceColor = Color3.fromRGB(0, 170, 255),
+    PlayerTraceColor = Color3.fromRGB(255, 255, 255),
 
     DistanceCheck = false,
     DistanceCheckValue = 50,
@@ -116,9 +116,9 @@ local function FormatConfigData(cfgData)
         PlayerESP = cfgData.PlayerESP or false,
         PlayerESPColor = (type(cfgData.PlayerESPColor) == "table" and TableToColor3(cfgData.PlayerESPColor)) or cfgData.PlayerESPColor or Color3.fromRGB(255,255,255),
         PlayerHitbox = cfgData.PlayerHitbox or false,
-        PlayerHitboxColor = (type(cfgData.PlayerHitboxColor) == "table" and TableToColor3(cfgData.PlayerHitboxColor)) or cfgData.PlayerHitboxColor or Color3.fromRGB(255,80,80),
+        PlayerHitboxColor = (type(cfgData.PlayerHitboxColor) == "table" and TableToColor3(cfgData.PlayerHitboxColor)) or cfgData.PlayerHitboxColor or Color3.fromRGB(255,255,255),
         PlayerTrace = cfgData.PlayerTrace or false,
-        PlayerTraceColor = (type(cfgData.PlayerTraceColor) == "table" and TableToColor3(cfgData.PlayerTraceColor)) or cfgData.PlayerTraceColor or Color3.fromRGB(0,170,255),
+        PlayerTraceColor = (type(cfgData.PlayerTraceColor) == "table" and TableToColor3(cfgData.PlayerTraceColor)) or cfgData.PlayerTraceColor or Color3.fromRGB(255,255,255),
         DistanceCheck = cfgData.DistanceCheck or false,
         DistanceCheckValue = cfgData.DistanceCheckValue or 50,
         Freecam = cfgData.Freecam or false,
@@ -140,9 +140,9 @@ local function SerializeConfigData(cfgData)
         PlayerESP = cfgData.PlayerESP,
         PlayerESPColor = Color3ToTable(cfgData.PlayerESPColor or Color3.fromRGB(255,255,255)),
         PlayerHitbox = cfgData.PlayerHitbox,
-        PlayerHitboxColor = Color3ToTable(cfgData.PlayerHitboxColor or Color3.fromRGB(255,80,80)),
+        PlayerHitboxColor = Color3ToTable(cfgData.PlayerHitboxColor or Color3.fromRGB(255,255,255)),
         PlayerTrace = cfgData.PlayerTrace,
-        PlayerTraceColor = Color3ToTable(cfgData.PlayerTraceColor or Color3.fromRGB(0,170,255)),
+        PlayerTraceColor = Color3ToTable(cfgData.PlayerTraceColor or Color3.fromRGB(255,255,255)),
         DistanceCheck = cfgData.DistanceCheck,
         DistanceCheckValue = cfgData.DistanceCheckValue,
         Freecam = cfgData.Freecam,
@@ -756,7 +756,7 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- CONFIRM OVERLAY (FIXED HIGHEST ZINDEX TO TOP LAYER)
+-- CONFIRM OVERLAY
 local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 100, Parent = ScreenGui })
 local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 101, Parent = ConfirmOverlay })
 AddCorner(ConfirmBox, 8)
@@ -780,7 +780,7 @@ ConfirmYes.MouseButton1Click:Connect(function()
     if currentConfirmAction then currentConfirmAction() end
 end)
 
--- TP LOCATION LIST (FIXED SCROLL LIST CONTAINER OVERFLOW)
+-- TP LOCATION LIST
 local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
 AddCorner(TpLocHolder, 5)
 Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6, 0, 2), BackgroundTransparency = 1, Text = "tp location list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = TpLocHolder })
@@ -911,7 +911,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 --==================================================
--- OPTION TAB SETUP & ADVANCED FIX LAG / FULLBRIGHT
+-- OPTION TAB SETUP & FIX LAG / ADJUSTED FULLBRIGHT
 --==================================================
 
 local originalLightingProps = {
@@ -1160,7 +1160,7 @@ local function GetPlayerColor(p)
         return COLORS.Purple
     end
 
-    return Settings.PlayerESPColor
+    return Color3.fromRGB(255, 255, 255)
 end
 
 --==================================================
@@ -1241,7 +1241,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         local moveX = moveVector.X
         local moveZ = moveVector.Z
 
-        -- FIXED FREECAM DOWNWARD SPEED MULTIPLIER
         local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
 
         FreecamPos = FreecamPos + (rightDir * (moveX * speed)) + (forwardDir * (-moveZ * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
@@ -1250,13 +1249,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
 
-    -- SURVIVAL-PROOF FULLBRIGHT LOGIC
+    -- SOFTENED SURVIVAL-PROOF FULLBRIGHT LOGIC
     if Settings.Fullbright then
-        Lighting.Brightness = 3
+        Lighting.Brightness = 1.2
         Lighting.ClockTime = 14
         Lighting.GlobalShadows = false
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.Ambient = Color3.fromRGB(150, 150, 150)
+        Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
         Lighting.FogEnd = 9e9
 
         if myRoot then
@@ -1264,16 +1263,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
             if not fbLight then
                 fbLight = Create("PointLight", {
                     Name = "ToanFullbrightLight",
-                    Brightness = 2,
-                    Range = 120,
+                    Brightness = 0.8,
+                    Range = 80,
+                    Color = Color3.fromRGB(240, 240, 255),
                     Shadows = false,
                     Parent = myRoot
                 })
+            else
+                fbLight.Brightness = 0.8
+                fbLight.Range = 80
             end
         end
     end
 
-    -- DIRECT SHIFTLOCK (NO FLOATING BUTTON)
+    -- DIRECT SHIFTLOCK
     if Settings.ShiftLock and myRoot then
         local lookVector = Camera.CFrame.LookVector
         myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
@@ -1333,6 +1336,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     stats.LastHP = targetHum.Health
                 end
 
+                -- SYNCED COLOR FOR NAME, HITBOX & TRACE LINE
                 local displayColor = GetPlayerColor(p)
 
                 local espTag = targetRoot:FindFirstChild("ToanESP")
@@ -1353,7 +1357,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     if not hb then
                         hb = Create("BoxHandleAdornment", { Name = "ToanHitboxAdorn", Size = Vector3.new(4, 5, 4), AlwaysOnTop = true, ZIndex = 10, Transparency = 0.5, Adornee = targetRoot, Parent = targetRoot })
                     end
-                    hb.Color3 = Settings.PlayerHitboxColor
+                    hb.Color3 = displayColor
                 elseif hb then
                     hb:Destroy()
                 end
@@ -1364,7 +1368,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     if onScreen then
                         line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                         line.To = Vector2.new(screenPos.X, screenPos.Y)
-                        line.Color = Settings.PlayerTraceColor
+                        line.Color = displayColor
                         line.Visible = true
                     else
                         line.Visible = false
@@ -1438,4 +1442,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v9 - Config Auto-Save, Resizable UI, FixLag & Fullbright Fixed!")
+print("ToanCreator GUI v9 - Dynamic Resizing, Color-Synced ESP/Hitbox/Trace & Softened Fullbright Loaded!")
