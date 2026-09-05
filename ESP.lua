@@ -1,6 +1,7 @@
 --[[
     ToanCreator GUI - Dynamic Resizing, Auto Config & Distance Slider Upgrade
     Mobile & PC Optimized (Color Pickers Removed, Fixed Default Colors & Red Name Damage Logic Enabled)
+    [UPDATED]: Enhanced Fullbright for Survival Games, Advanced FixLag & Mini Green FPS Label
 ]]
 
 local Players = game:GetService("Players")
@@ -234,6 +235,21 @@ local ScreenGui = Create("ScreenGui", {
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     Parent = PlayerGui,
+})
+
+-- FPS DISPLAY LABEL (TOP RIGHT CORNER)
+local FPSLabel = Create("TextLabel", {
+    Size = UDim2.new(0, 70, 0, 18),
+    Position = UDim2.new(1, -75, 0, 5),
+    BackgroundTransparency = 1,
+    Text = "FPS: 60",
+    TextColor3 = COLORS.Green,
+    TextSize = 10,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Visible = false,
+    ZIndex = 999,
+    Parent = ScreenGui
 })
 
 local Main = Create("Frame", {
@@ -895,16 +911,72 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 --==================================================
--- OPTION TAB SETUP
+-- OPTION TAB SETUP & ADVANCED FIX LAG / FULLBRIGHT
 --==================================================
 
-CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) Settings.Fullbright = v end)
+local originalLightingProps = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    GlobalShadows = Lighting.GlobalShadows,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    FogEnd = Lighting.FogEnd
+}
+
+local function OptimizeObject(obj)
+    if not Settings.FixLag then return end
+    if obj:IsA("BasePart") then
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.Reflectance = 0
+        obj.CastShadow = false
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+        obj:Destroy()
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+        obj.Enabled = false
+    elseif obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("SunRaysEffect") or obj:IsA("DepthOfFieldEffect") then
+        obj.Enabled = false
+    end
+end
+
+CreateCheckbox("Fullbright", OptionPage, "fullbright", function(v) 
+    Settings.Fullbright = v 
+    if not v then
+        Lighting.Brightness = originalLightingProps.Brightness
+        Lighting.ClockTime = originalLightingProps.ClockTime
+        Lighting.GlobalShadows = originalLightingProps.GlobalShadows
+        Lighting.Ambient = originalLightingProps.Ambient
+        Lighting.OutdoorAmbient = originalLightingProps.OutdoorAmbient
+        Lighting.FogEnd = originalLightingProps.FogEnd
+        
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root and root:FindFirstChild("ToanFullbrightLight") then
+            root.ToanFullbrightLight:Destroy()
+        end
+    end
+end)
+
 CreateCheckbox("FixLag", OptionPage, "fixlag", function(v)
     Settings.FixLag = v
+    FPSLabel.Visible = v
     if v then
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") then obj.Material = Enum.Material.SmoothPlastic end
+        local Terrain = workspace:FindFirstChildOfClass("Terrain")
+        if Terrain then
+            Terrain.WaterWaveSize = 0
+            Terrain.WaterWaveSpeed = 0
+            Terrain.WaterReflectance = 0
+            Terrain.WaterTransparency = 0
         end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            OptimizeObject(obj)
+        end
+    end
+end)
+
+workspace.DescendantAdded:Connect(function(obj)
+    if Settings.FixLag then
+        task.wait()
+        OptimizeObject(obj)
     end
 end)
 
@@ -1092,7 +1164,7 @@ local function GetPlayerColor(p)
 end
 
 --==================================================
--- RENDER LOOP
+-- RENDER LOOP & FPS CALCULATOR
 --==================================================
 
 local function GetLine(p)
@@ -1105,7 +1177,19 @@ local function GetLine(p)
     return TraceLines[p]
 end
 
+local frameCount = 0
+local lastFpsUpdate = tick()
+
 RunService.RenderStepped:Connect(function(deltaTime)
+    -- CALCULATE & UPDATE FPS
+    frameCount = frameCount + 1
+    if tick() - lastFpsUpdate >= 1 then
+        local currentFps = math.floor(frameCount / (tick() - lastFpsUpdate))
+        FPSLabel.Text = "FPS: " .. tostring(currentFps)
+        frameCount = 0
+        lastFpsUpdate = tick()
+    end
+
     local char = LocalPlayer.Character
     local myRoot = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -1166,10 +1250,27 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
 
+    -- SURVIVAL-PROOF FULLBRIGHT LOGIC
     if Settings.Fullbright then
-        Lighting.Brightness = 2
+        Lighting.Brightness = 3
         Lighting.ClockTime = 14
         Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.FogEnd = 9e9
+
+        if myRoot then
+            local fbLight = myRoot:FindFirstChild("ToanFullbrightLight")
+            if not fbLight then
+                fbLight = Create("PointLight", {
+                    Name = "ToanFullbrightLight",
+                    Brightness = 2,
+                    Range = 120,
+                    Shadows = false,
+                    Parent = myRoot
+                })
+            end
+        end
     end
 
     -- DIRECT SHIFTLOCK (NO FLOATING BUTTON)
@@ -1337,4 +1438,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v9 - Config Auto-Save & Resizable UI Loaded!")
+print("ToanCreator GUI v9 - Config Auto-Save, Resizable UI, FixLag & Fullbright Fixed!")
