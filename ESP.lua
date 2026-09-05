@@ -1,5 +1,5 @@
 --[[
-    ToanCreator GUI - Extended Custom Feature Edition
+    ToanCreator GUI - Dynamic Resizing, Auto Config & Distance Slider Upgrade
     Mobile & PC Optimized
 ]]
 
@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
 
 -- PREVENT MULTIPLE EXECUTIONS
 if getgenv and getgenv().ToanCreatorLoaded then
@@ -47,8 +48,9 @@ local SCRIPT_LOADER_CODE = [[
 --==================================================
 -- CONFIG & AUTO-SAVE FILE STORAGE SYSTEM
 --==================================================
-local AUTO_CONFIG_FILE = "ToanCreator_AutoSave.json"
+
 local CONFIG_FILE_NAME = "ToanCreator_Configs.json"
+local AUTO_CONFIG_FILE_NAME = "ToanCreator_AutoConfig.json"
 
 local COLORS = {
     Background = Color3.fromRGB(18, 18, 22),
@@ -61,8 +63,7 @@ local COLORS = {
     Red = Color3.fromRGB(235, 70, 70),
     Yellow = Color3.fromRGB(255, 215, 70),
     Purple = Color3.fromRGB(170, 0, 255),
-    Black = Color3.fromRGB(20, 20, 20),
-    WaterBlue = Color3.fromRGB(0, 195, 255)
+    Black = Color3.fromRGB(20, 20, 20)
 }
 
 local DefaultSettings = {
@@ -82,7 +83,7 @@ local DefaultSettings = {
     PlayerTraceColor = Color3.fromRGB(0, 170, 255),
 
     DistanceCheck = false,
-    DistanceCheckVal = 50,
+    DistanceCheckValue = 50,
     Freecam = false,
 
     Fullbright = false,
@@ -104,106 +105,115 @@ local UI_Controls = {}
 local function Color3ToTable(c) return {R = c.R, G = c.G, B = c.B} end
 local function TableToColor3(t) return Color3.new(t.R or 1, t.G or 1, t.B or 1) end
 
-local function SerializeSettings(st)
+local function FormatConfigData(cfgData)
     return {
-        Speed = st.Speed,
-        Jump = st.Jump,
-        Fly = st.Fly,
-        Noclip = st.Noclip,
-        NoGravity = st.NoGravity,
-        PlayerESP = st.PlayerESP,
-        PlayerESPColor = Color3ToTable(st.PlayerESPColor or Color3.fromRGB(255,255,255)),
-        PlayerHitbox = st.PlayerHitbox,
-        PlayerHitboxColor = Color3ToTable(st.PlayerHitboxColor or Color3.fromRGB(255,80,80)),
-        PlayerTrace = st.PlayerTrace,
-        PlayerTraceColor = Color3ToTable(st.PlayerTraceColor or Color3.fromRGB(0,170,255)),
-        DistanceCheck = st.DistanceCheck,
-        DistanceCheckVal = st.DistanceCheckVal or 50,
-        Freecam = st.Freecam,
-        Fullbright = st.Fullbright,
-        FixLag = st.FixLag,
-        AutoExecute = st.AutoExecute,
-        ShiftLock = st.ShiftLock,
-        MenuLock = st.MenuLock
+        Speed = cfgData.Speed or { Enabled = false, Value = 16 },
+        Jump = cfgData.Jump or { Enabled = false, Value = 50 },
+        Fly = cfgData.Fly or false,
+        Noclip = cfgData.Noclip or false,
+        NoGravity = cfgData.NoGravity or false,
+        PlayerESP = cfgData.PlayerESP or false,
+        PlayerESPColor = (type(cfgData.PlayerESPColor) == "table" and TableToColor3(cfgData.PlayerESPColor)) or cfgData.PlayerESPColor or Color3.fromRGB(255,255,255),
+        PlayerHitbox = cfgData.PlayerHitbox or false,
+        PlayerHitboxColor = (type(cfgData.PlayerHitboxColor) == "table" and TableToColor3(cfgData.PlayerHitboxColor)) or cfgData.PlayerHitboxColor or Color3.fromRGB(255,80,80),
+        PlayerTrace = cfgData.PlayerTrace or false,
+        PlayerTraceColor = (type(cfgData.PlayerTraceColor) == "table" and TableToColor3(cfgData.PlayerTraceColor)) or cfgData.PlayerTraceColor or Color3.fromRGB(0,170,255),
+        DistanceCheck = cfgData.DistanceCheck or false,
+        DistanceCheckValue = cfgData.DistanceCheckValue or 50,
+        Freecam = cfgData.Freecam or false,
+        Fullbright = cfgData.Fullbright or false,
+        FixLag = cfgData.FixLag or false,
+        AutoExecute = cfgData.AutoExecute or false,
+        ShiftLock = cfgData.ShiftLock or false,
+        MenuLock = cfgData.MenuLock or false
     }
 end
 
-local function DeserializeSettings(data)
-    if not data then return end
-    Settings.Speed = data.Speed or { Enabled = false, Value = 16 }
-    Settings.Jump = data.Jump or { Enabled = false, Value = 50 }
-    Settings.Fly = data.Fly or false
-    Settings.Noclip = data.Noclip or false
-    Settings.NoGravity = data.NoGravity or false
-    Settings.PlayerESP = data.PlayerESP or false
-    Settings.PlayerESPColor = data.PlayerESPColor and TableToColor3(data.PlayerESPColor) or Color3.fromRGB(255,255,255)
-    Settings.PlayerHitbox = data.PlayerHitbox or false
-    Settings.PlayerHitboxColor = data.PlayerHitboxColor and TableToColor3(data.PlayerHitboxColor) or Color3.fromRGB(255,80,80)
-    Settings.PlayerTrace = data.PlayerTrace or false
-    Settings.PlayerTraceColor = data.PlayerTraceColor and TableToColor3(data.PlayerTraceColor) or Color3.fromRGB(0,170,255)
-    Settings.DistanceCheck = data.DistanceCheck or false
-    Settings.DistanceCheckVal = data.DistanceCheckVal or 50
-    Settings.Freecam = data.Freecam or false
-    Settings.Fullbright = data.Fullbright or false
-    Settings.FixLag = data.FixLag or false
-    Settings.AutoExecute = data.AutoExecute or false
-    Settings.ShiftLock = data.ShiftLock or false
-    Settings.MenuLock = data.MenuLock or false
+local function SerializeConfigData(cfgData)
+    return {
+        Speed = cfgData.Speed,
+        Jump = cfgData.Jump,
+        Fly = cfgData.Fly,
+        Noclip = cfgData.Noclip,
+        NoGravity = cfgData.NoGravity,
+        PlayerESP = cfgData.PlayerESP,
+        PlayerESPColor = Color3ToTable(cfgData.PlayerESPColor or Color3.fromRGB(255,255,255)),
+        PlayerHitbox = cfgData.PlayerHitbox,
+        PlayerHitboxColor = Color3ToTable(cfgData.PlayerHitboxColor or Color3.fromRGB(255,80,80)),
+        PlayerTrace = cfgData.PlayerTrace,
+        PlayerTraceColor = Color3ToTable(cfgData.PlayerTraceColor or Color3.fromRGB(0,170,255)),
+        DistanceCheck = cfgData.DistanceCheck,
+        DistanceCheckValue = cfgData.DistanceCheckValue,
+        Freecam = cfgData.Freecam,
+        Fullbright = cfgData.Fullbright,
+        FixLag = cfgData.FixLag,
+        AutoExecute = cfgData.AutoExecute,
+        ShiftLock = cfgData.ShiftLock,
+        MenuLock = cfgData.MenuLock
+    }
 end
 
 local function SaveAutoConfig()
     if writefile then
         pcall(function()
-            writefile(AUTO_CONFIG_FILE, HttpService:JSONEncode(SerializeSettings(Settings)))
+            writefile(AUTO_CONFIG_FILE_NAME, HttpService:JSONEncode(SerializeConfigData(Settings)))
         end)
     end
 end
 
 local function LoadAutoConfig()
-    if readfile and isfile and isfile(AUTO_CONFIG_FILE) then
-        pcall(function()
-            local decoded = HttpService:JSONDecode(readfile(AUTO_CONFIG_FILE))
-            DeserializeSettings(decoded)
+    if readfile and isfile and isfile(AUTO_CONFIG_FILE_NAME) then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(AUTO_CONFIG_FILE_NAME))
         end)
+        if success and result then
+            return FormatConfigData(result)
+        end
     end
+    return nil
 end
 
 local function LoadSavedConfigsFromFile()
     if readfile and isfile and isfile(CONFIG_FILE_NAME) then
-        pcall(function()
+        local success, result = pcall(function()
             local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE_NAME))
-            SavedConfigs = decoded
+            local formatted = {}
+            for cfgName, cfgData in pairs(decoded) do
+                formatted[cfgName] = FormatConfigData(cfgData)
+            end
+            return formatted
         end)
+        if success and result then SavedConfigs = result end
     end
 end
 
 local function SaveConfigsToFile()
     if writefile then
         pcall(function()
-            writefile(CONFIG_FILE_NAME, HttpService:JSONEncode(SavedConfigs))
+            local dataToSave = {}
+            for cfgName, cfgData in pairs(SavedConfigs) do
+                dataToSave[cfgName] = SerializeConfigData(cfgData)
+            end
+            writefile(CONFIG_FILE_NAME, HttpService:JSONEncode(dataToSave))
         end)
     end
 end
 
-LoadAutoConfig()
 LoadSavedConfigsFromFile()
-
--- Auto Execute Handling on Teleport
-if Settings.AutoExecute then
-    local qFunc = GetQueueOnTeleport()
-    if qFunc then
-        pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
-    end
-end
 
 -- Freecam State
 local FreecamPos = Vector3.zero
-local freecamYaw, freecamPitch = 0, 0
-local PlayerStats, TraceLines = {}, {}
+local freecamYaw = 0
+local freecamPitch = 0
+
+-- Tracking
+local PlayerStats = {}
+local TraceLines = {}
 
 --==================================================
--- UTILS & SCREEN GUI SETUP
+-- UTILS & SCREEN GUI
 --==================================================
+
 local function Create(cls, props)
     local obj = Instance.new(cls)
     for k, v in pairs(props or {}) do obj[k] = v end
@@ -226,35 +236,9 @@ local ScreenGui = Create("ScreenGui", {
     Parent = PlayerGui,
 })
 
--- TRASH DROP ZONE (FOR DETACHED CARDS)
-local TrashZone = Create("Frame", {
-    Size = UDim2.new(0, 50, 0, 50),
-    AnchorPoint = Vector2.new(0.5, 1),
-    Position = UDim2.new(0.5, 0, 1, -20),
-    BackgroundColor3 = COLORS.Red,
-    BackgroundTransparency = 0.5,
-    Visible = false,
-    ZIndex = 150,
-    Parent = ScreenGui
-})
-AddCorner(TrashZone, 25)
-AddStroke(TrashZone, Color3.fromRGB(255, 255, 255), 2)
-
-local TrashLabel = Create("TextLabel", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "X",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextSize = 22,
-    Font = Enum.Font.GothamBold,
-    ZIndex = 151,
-    Parent = TrashZone
-})
-
--- MAIN WINDOW
 local Main = Create("Frame", {
-    Size = UDim2.new(0, 270, 0, 360),
-    Position = UDim2.new(0.5, -135, 0.5, -180),
+    Size = UDim2.new(0, 270, 0, 380),
+    Position = UDim2.new(0.5, -135, 0.5, -190),
     BackgroundColor3 = COLORS.Background,
     BorderSizePixel = 0,
     Parent = ScreenGui,
@@ -262,77 +246,122 @@ local Main = Create("Frame", {
 AddCorner(Main, 10)
 local MainStroke = AddStroke(Main, Color3.fromRGB(60, 60, 75), 1.5)
 
--- RESIZE BORDER EFFECT & CORNER HANDLES
-local CornerTL = Create("Frame", { Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 30, Parent = Main })
-local CornerTR = Create("Frame", { Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(1, -15, 0, 0), BackgroundTransparency = 1, ZIndex = 30, Parent = Main })
-local CornerBL = Create("Frame", { Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(0, 0, 1, -15), BackgroundTransparency = 1, ZIndex = 30, Parent = Main })
-local CornerBR = Create("Frame", { Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(1, -15, 1, -15), BackgroundTransparency = 1, ZIndex = 30, Parent = Main })
+-- WATERFLOW BORDER EFFECT FOR RESIZING
+local MainGradient = Create("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 50, 120)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 255))
+    }),
+    Enabled = false,
+    Parent = MainStroke
+})
 
-local isResizingUI = false
-local resizeAnimConnection = nil
-
-local function StartBorderFlowAnimation()
-    if resizeAnimConnection then return end
-    MainStroke.Thickness = 2.5
-    resizeAnimConnection = RunService.RenderStepped:Connect(function()
-        local t = os.clock() * 4
-        local r = (math.sin(t) + 1) / 2
-        local g = (math.sin(t + 2) + 1) / 2
-        MainStroke.Color = Color3.fromRGB(0, math.floor(150 + g * 105), 255)
-    end)
-end
-
-local function StopBorderFlowAnimation()
-    if resizeAnimConnection then
-        resizeAnimConnection:Disconnect()
-        resizeAnimConnection = nil
-    end
-    MainStroke.Thickness = 1.5
-    MainStroke.Color = Color3.fromRGB(60, 60, 75)
-end
-
-local function SetupResizer(handleCorner)
-    handleCorner.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isResizingUI = true
-            StartBorderFlowAnimation()
-            
-            local startPos = input.Position
-            local startSize = Main.Size
-            
-            local moveConn, endConn
-            moveConn = UserInputService.InputChanged:Connect(function(inp)
-                if isResizingUI and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = inp.Position - startPos
-                    local newWidth = math.max(200, startSize.X.Offset + delta.X)
-                    local newHeight = math.max(260, startSize.Y.Offset + delta.Y)
-                    Main.Size = UDim2.new(0, newWidth, 0, newHeight)
-                end
+local flowConnection = nil
+local function SetWaterflowBorder(enable)
+    MainGradient.Enabled = enable
+    MainStroke.Color = enable and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 75)
+    MainStroke.Thickness = enable and 2.5 or 1.5
+    
+    if enable then
+        if not flowConnection then
+            flowConnection = RunService.RenderStepped:Connect(function()
+                MainGradient.Rotation = (tick() * 180) % 360
             end)
-            
-            endConn = UserInputService.InputEnded:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                    isResizingUI = false
-                    StopBorderFlowAnimation()
-                    if moveConn then moveConn:Disconnect() end
-                    if endConn then endConn:Disconnect() end
+        end
+    else
+        if flowConnection then
+            flowConnection:Disconnect()
+            flowConnection = nil
+        end
+    end
+end
+
+-- RESIZING SYSTEM FROM 4 CORNERS
+local MIN_WIDTH = 240
+local MIN_HEIGHT = 300
+
+local function SetupCornerResize(handle, cornerType)
+    local resizing = false
+    local startInputPos, startSize, startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = true
+            startInputPos = input.Position
+            startSize = Main.AbsoluteSize
+            startPos = Main.Position
+            SetWaterflowBorder(true)
+
+            local conn
+            conn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    resizing = false
+                    SetWaterflowBorder(false)
+                    if conn then conn:Disconnect() end
                 end
             end)
         end
     end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - startInputPos
+            local newW, newH = startSize.X, startSize.Y
+            local newXOffset, newYOffset = startPos.X.Offset, startPos.Y.Offset
+
+            if cornerType == "BR" then
+                newW = math.max(MIN_WIDTH, startSize.X + delta.X)
+                newH = math.max(MIN_HEIGHT, startSize.Y + delta.Y)
+            elseif cornerType == "BL" then
+                local w = startSize.X - delta.X
+                if w >= MIN_WIDTH then
+                    newW = w
+                    newXOffset = startPos.X.Offset + delta.X
+                end
+                newH = math.max(MIN_HEIGHT, startSize.Y + delta.Y)
+            elseif cornerType == "TR" then
+                newW = math.max(MIN_WIDTH, startSize.X + delta.X)
+                local h = startSize.Y - delta.Y
+                if h >= MIN_HEIGHT then
+                    newH = h
+                    newYOffset = startPos.Y.Offset + delta.Y
+                end
+            elseif cornerType == "TL" then
+                local w = startSize.X - delta.X
+                if w >= MIN_WIDTH then
+                    newW = w
+                    newXOffset = startPos.X.Offset + delta.X
+                end
+                local h = startSize.Y - delta.Y
+                if h >= MIN_HEIGHT then
+                    newH = h
+                    newYOffset = startPos.Y.Offset + delta.Y
+                end
+            end
+
+            Main.Size = UDim2.new(0, newW, 0, newH)
+            Main.Position = UDim2.new(startPos.X.Scale, newXOffset, startPos.Y.Scale, newYOffset)
+        end
+    end)
 end
 
-SetupResizer(CornerTL)
-SetupResizer(CornerTR)
-SetupResizer(CornerBL)
-SetupResizer(CornerBR)
+local Corners = {
+    TL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
+    TR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 0, 0), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
+    BL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 1, -16), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
+    BR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 1, -16), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
+}
+
+for cornerType, handle in pairs(Corners) do
+    SetupCornerResize(handle, cornerType)
+end
 
 local function MakeDraggable(frame, handle, canDragCheck)
     local dragging, dragStart, startPos
     handle = handle or frame
     handle.InputBegan:Connect(function(input)
         if canDragCheck and not canDragCheck() then return end
-        if isResizingUI then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
@@ -355,10 +384,9 @@ local function MakeDraggable(frame, handle, canDragCheck)
         end
     end)
 end
-
 MakeDraggable(Main, Main)
 
--- HEADER & TABS
+-- HEADER
 local Header = Create("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = COLORS.Panel, Parent = Main })
 AddCorner(Header, 10)
 
@@ -374,6 +402,7 @@ AddCorner(MinimizeButton, 5)
 local CloseButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -28, 0, 6), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 15, Font = Enum.Font.GothamBold, Parent = Header })
 AddCorner(CloseButton, 5)
 
+-- TAB SYSTEM
 local TabBar = Create("Frame", { Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 0, 40), BackgroundTransparency = 1, Parent = Main })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = TabBar })
 
@@ -417,133 +446,7 @@ Tabs["MOVE"].TextColor3 = Color3.new(1, 1, 1)
 Pages["MOVE"].Visible = true
 
 --==================================================
--- DETACHABLE FLOATING FEATURE CARDS
---==================================================
-local function MakeComponentDetachable(cardHolder, minWidth)
-    minWidth = minWidth or 120
-    local isDetached = false
-    local isLocked = false
-    local parentPage = cardHolder.Parent
-    local originalSize = cardHolder.Size
-
-    -- Lock Button (15px Icon)
-    local LockBtn = Create("ImageButton", {
-        Size = UDim2.new(0, 15, 0, 15),
-        Position = UDim2.new(0, 2, 0, 2),
-        BackgroundColor3 = COLORS.Button,
-        Image = "rbxassetid://6031082533", -- Lock icon
-        ImageColor3 = Color3.fromRGB(150, 150, 150),
-        Visible = false,
-        ZIndex = 50,
-        Parent = cardHolder
-    })
-    AddCorner(LockBtn, 3)
-
-    LockBtn.MouseButton1Click:Connect(function()
-        isLocked = not isLocked
-        LockBtn.ImageColor3 = isLocked and COLORS.Accent or Color3.fromRGB(150, 150, 150)
-    end)
-
-    -- Resizers for Detached Card
-    local CardResizeHandle = Create("Frame", {
-        Size = UDim2.new(0, 10, 0, 10),
-        Position = UDim2.new(1, -10, 1, -10),
-        BackgroundTransparency = 1,
-        Visible = false,
-        ZIndex = 51,
-        Parent = cardHolder
-    })
-
-    local isCardResizing = false
-    CardResizeHandle.InputBegan:Connect(function(input)
-        if not isDetached or isLocked then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isCardResizing = true
-            local startPos = input.Position
-            local startSize = cardHolder.Size
-
-            local moveConn, endConn
-            moveConn = UserInputService.InputChanged:Connect(function(inp)
-                if isCardResizing and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = inp.Position - startPos
-                    local newW = math.max(minWidth, startSize.X.Offset + delta.X)
-                    local newH = math.max(32, startSize.Y.Offset + delta.Y)
-                    cardHolder.Size = UDim2.new(0, newW, 0, newH)
-                end
-            end)
-
-            endConn = UserInputService.InputEnded:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                    isCardResizing = false
-                    if moveConn then moveConn:Disconnect() end
-                    if endConn then endConn:Disconnect() end
-                end
-            end)
-        end
-    end)
-
-    -- Detach & Drag Logic
-    local draggingCard, dragStart, startPos
-    cardHolder.InputBegan:Connect(function(input)
-        if isLocked or isCardResizing then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingCard = true
-            dragStart = input.Position
-            startPos = cardHolder.Position
-
-            if isDetached then TrashZone.Visible = true end
-
-            local touchConn
-            touchConn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    draggingCard = false
-                    TrashZone.Visible = false
-                    if touchConn then touchConn:Disconnect() end
-
-                    -- Check drop inside Trash Zone
-                    if isDetached then
-                        local mousePos = UserInputService:GetMouseLocation()
-                        local trashAbsPos = TrashZone.AbsolutePosition
-                        local trashAbsSize = TrashZone.AbsoluteSize
-                        if mousePos.X >= trashAbsPos.X and mousePos.X <= (trashAbsPos.X + trashAbsSize.X)
-                            and mousePos.Y >= trashAbsPos.Y and mousePos.Y <= (trashAbsPos.Y + trashAbsSize.Y) then
-                            -- Re-attach
-                            isDetached = false
-                            isLocked = false
-                            cardHolder.Parent = parentPage
-                            cardHolder.Size = originalSize
-                            LockBtn.Visible = false
-                            CardResizeHandle.Visible = false
-                            LockBtn.ImageColor3 = Color3.fromRGB(150, 150, 150)
-                        end
-                    end
-                end
-            end)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingCard and not isLocked and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            
-            if not isDetached and math.abs(delta.X) > 20 then
-                -- Detach to ScreenGui
-                isDetached = true
-                cardHolder.Parent = ScreenGui
-                cardHolder.Position = UDim2.new(0, input.Position.X - 50, 0, input.Position.Y - 15)
-                cardHolder.Size = UDim2.new(0, math.max(minWidth, originalSize.X.Offset), 0, originalSize.Y.Offset)
-                LockBtn.Visible = true
-                CardResizeHandle.Visible = true
-                TrashZone.Visible = true
-            elseif isDetached then
-                cardHolder.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end
-    end)
-end
-
---==================================================
--- UI COMPONENTS SETUP
+-- UI COMPONENTS & CONTROLS BINDING
 --==================================================
 
 local function BindLongPress(button, duration, callback)
@@ -581,13 +484,13 @@ local function CreateCombinedInput(id, parent, labelText, defaultVal, onValueCha
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
     local state = false
-    local function setCheckState(st)
+    local function setCheckState(st, skipSave)
         state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
-        SaveAutoConfig()
+        if not skipSave then SaveAutoConfig() end
     end
 
     check.MouseButton1Click:Connect(function()
@@ -596,19 +499,18 @@ local function CreateCombinedInput(id, parent, labelText, defaultVal, onValueCha
 
     input.FocusLost:Connect(function()
         local num = tonumber(input.Text)
-        if num then
-            if onValueChange then onValueChange(num) end
+        if num then 
+            if onValueChange then onValueChange(num) end 
             SaveAutoConfig()
-        else
-            input.Text = tostring(defaultVal)
+        else 
+            input.Text = tostring(defaultVal) 
         end
     end)
 
     UI_Controls[id] = {
-        SetState = setCheckState,
+        SetState = function(s) setCheckState(s, true) end,
         SetValue = function(v) input.Text = tostring(v); if onValueChange then onValueChange(v) end end
     }
-    MakeComponentDetachable(holder, 130)
     return holder
 end
 
@@ -622,22 +524,21 @@ local function CreateCheckbox(id, parent, labelText, onToggle)
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
     local state = false
-    local function setCheckState(st)
+    local function setCheckState(st, skipSave)
         state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
-        SaveAutoConfig()
+        if not skipSave then SaveAutoConfig() end
     end
 
     check.MouseButton1Click:Connect(function()
         setCheckState(not state)
     end)
 
-    UI_Controls[id] = { SetState = setCheckState }
-    MakeComponentDetachable(holder, 80)
-    return holder
+    UI_Controls[id] = { SetState = function(s) setCheckState(s, true) end }
+    return check
 end
 
 local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange, onToggle)
@@ -662,13 +563,13 @@ local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange
     end)
 
     local state = false
-    local function setCheckState(st)
+    local function setCheckState(st, skipSave)
         state = st
         check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
         check.Text = state and "✓" or ""
         check.TextColor3 = Color3.new(1, 1, 1)
         if onToggle then onToggle(state) end
-        SaveAutoConfig()
+        if not skipSave then SaveAutoConfig() end
     end
 
     check.MouseButton1Click:Connect(function()
@@ -676,15 +577,99 @@ local function CreateESPCombo(id, parent, labelText, defaultColor, onColorChange
     end)
 
     UI_Controls[id] = {
-        SetState = setCheckState,
+        SetState = function(s) setCheckState(s, true) end,
         SetColor = function(c) colorBtn.BackgroundColor3 = c; if onColorChange then onColorChange(c) end end
     }
-    MakeComponentDetachable(holder, 100)
     return holder
 end
 
+-- DISTANCE SLIDER COMPONENT (MIN: 0, MAX: 100, DEFAULT: 50)
+local function CreateDistanceSlider(parent)
+    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 52), BackgroundColor3 = COLORS.Panel, Parent = parent })
+    AddCorner(holder, 5)
+
+    local titleLbl = Create("TextLabel", { Size = UDim2.new(1, -40, 0, 20), Position = UDim2.new(0, 8, 0, 4), BackgroundTransparency = 1, Text = "distance check", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
+
+    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0, 4), BackgroundColor3 = COLORS.Button, Text = "", Parent = holder })
+    AddCorner(check, 4)
+    AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
+
+    local sliderContainer = Create("Frame", { Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 28), BackgroundTransparency = 1, Parent = holder })
+    
+    local lineBg = Create("Frame", { Size = UDim2.new(1, 0, 0, 4), Position = UDim2.new(0, 0, 0.5, -2), BackgroundColor3 = COLORS.Button, BorderSizePixel = 0, Parent = sliderContainer })
+    AddCorner(lineBg, 2)
+
+    local lineFill = Create("Frame", { Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = COLORS.Accent, BorderSizePixel = 0, Parent = lineBg })
+    AddCorner(lineFill, 2)
+
+    local knob = Create("Frame", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0.5, -7, 0.5, -7), BackgroundColor3 = COLORS.Text, Parent = sliderContainer })
+    AddCorner(knob, 7)
+    AddStroke(knob, COLORS.Accent, 1.5)
+
+    local valLbl = Create("TextLabel", { Size = UDim2.new(0, 30, 0, 16), Position = UDim2.new(1, -68, 0, 4), BackgroundTransparency = 1, Text = "50", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right, Parent = holder })
+
+    local isDragging = false
+    local function UpdateSlider(inputPos)
+        local relX = math.clamp(inputPos.X - sliderContainer.AbsolutePosition.X, 0, sliderContainer.AbsoluteSize.X)
+        local percent = relX / sliderContainer.AbsoluteSize.X
+        local val = math.floor(percent * 100)
+
+        lineFill.Size = UDim2.new(percent, 0, 1, 0)
+        knob.Position = UDim2.new(percent, -7, 0.5, -7)
+        valLbl.Text = tostring(val)
+
+        Settings.DistanceCheckValue = val
+    end
+
+    sliderContainer.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            UpdateSlider(input.Position)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(input.Position)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            isDragging = false
+            SaveAutoConfig()
+        end
+    end)
+
+    local state = false
+    local function setCheckState(st, skipSave)
+        state = st
+        Settings.DistanceCheck = st
+        check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
+        check.Text = state and "✓" or ""
+        check.TextColor3 = Color3.new(1, 1, 1)
+        if not skipSave then SaveAutoConfig() end
+    end
+
+    check.MouseButton1Click:Connect(function()
+        setCheckState(not state)
+    end)
+
+    UI_Controls["DistanceCheck"] = {
+        SetState = function(s) setCheckState(s, true) end,
+        SetValue = function(v)
+            v = math.clamp(v or 50, 0, 100)
+            Settings.DistanceCheckValue = v
+            local percent = v / 100
+            lineFill.Size = UDim2.new(percent, 0, 1, 0)
+            knob.Position = UDim2.new(percent, -7, 0.5, -7)
+            valLbl.Text = tostring(v)
+        end
+    }
+end
+
 --==================================================
--- MOVE TAB SETUP
+-- MOVE TAB SETUP & FLY CONTROLS
 --==================================================
 
 CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
@@ -718,10 +703,14 @@ local FlyControls = Create("Frame", {
 
 local FlyUp = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "▲", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, Parent = FlyControls })
 AddCorner(FlyUp, 5)
+AddStroke(FlyUp, Color3.fromRGB(0, 0, 0), 1)
+
 local FlyDown = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 30), BackgroundColor3 = COLORS.Accent, Text = "▼", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, Parent = FlyControls })
 AddCorner(FlyDown, 5)
+AddStroke(FlyDown, Color3.fromRGB(0, 0, 0), 1)
 
 local flyUpHeld, flyDownHeld = false, false
+
 local function BindPressHold(button, stateUpdate)
     button.MouseButton1Down:Connect(function() stateUpdate(true) end)
     button.MouseButton1Up:Connect(function() stateUpdate(false) end)
@@ -792,7 +781,30 @@ PlayerTpBtn.MouseButton1Click:Connect(function()
         if myRoot then myRoot.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0) end
     end
 end)
-MakeComponentDetachable(TpPlayerHolder, 150)
+
+-- CONFIRM OVERLAY
+local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 20, Parent = ScreenGui })
+local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 21, Parent = ConfirmOverlay })
+AddCorner(ConfirmBox, 8)
+
+local ConfirmText = Create("TextLabel", { Size = UDim2.new(1, -10, 0, 40), Position = UDim2.new(0, 5, 0, 10), BackgroundTransparency = 1, Text = "Xác nhận?", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.GothamBold, TextWrapped = true, ZIndex = 22, Parent = ConfirmBox })
+local ConfirmYes = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(0, 15, 1, -34), BackgroundColor3 = COLORS.Red, Text = "Có", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 22, Parent = ConfirmBox })
+AddCorner(ConfirmYes, 5)
+
+local ConfirmNo = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(1, -90, 1, -34), BackgroundColor3 = COLORS.Button, Text = "Không", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 22, Parent = ConfirmBox })
+AddCorner(ConfirmNo, 5)
+
+local currentConfirmAction = nil
+local function ShowConfirm(text, onYes)
+    ConfirmText.Text = text
+    currentConfirmAction = onYes
+    ConfirmOverlay.Visible = true
+end
+ConfirmNo.MouseButton1Click:Connect(function() ConfirmOverlay.Visible = false end)
+ConfirmYes.MouseButton1Click:Connect(function()
+    ConfirmOverlay.Visible = false
+    if currentConfirmAction then currentConfirmAction() end
+end)
 
 -- TP LOCATION LIST
 local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
@@ -814,6 +826,15 @@ local function RefreshLocationList()
         })
         AddCorner(lBtn, 3)
         lBtn.MouseButton1Click:Connect(function() SelectedLocation = loc; RefreshLocationList() end)
+        
+        BindLongPress(lBtn, 1, function()
+            ShowConfirm("Xóa vị trí '"..loc.Name.."'?", function()
+                if loc.Part then loc.Part:Destroy() end
+                table.remove(Locations, idx)
+                if SelectedLocation == loc then SelectedLocation = nil end
+                RefreshLocationList()
+            end)
+        end)
     end
 end
 
@@ -831,10 +852,14 @@ SetBtn.MouseButton1Click:Connect(function()
     if not myRoot then return end
 
     local folder = workspace:FindFirstChild("ToanCreator_Markers") or Create("Folder", { Name = "ToanCreator_Markers", Parent = workspace })
-    local part = Create("Part", { Name = name, Size = Vector3.new(1.5, 1.5, 1.5), Position = myRoot.Position, Anchored = true, CanCollide = false, Material = Enum.Material.Neon, Color = Color3.fromRGB(0, 255, 170), Parent = folder })
     
+    local part = Create("Part", { Name = name, Size = Vector3.new(1.5, 1.5, 1.5), Position = myRoot.Position, Anchored = true, CanCollide = false, Material = Enum.Material.Neon, Color = Color3.fromRGB(0, 255, 170), Parent = folder })
+    local bill = Create("BillboardGui", { Size = UDim2.new(0, 100, 0, 30), StudsOffset = Vector3.new(0, 2, 0), AlwaysOnTop = true, Adornee = part, Parent = part })
+    Create("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "📍 "..name, TextColor3 = Color3.fromRGB(0, 255, 170), TextStrokeTransparency = 0, TextSize = 11, Font = Enum.Font.GothamBold, Parent = bill })
+
     local locData = { Name = name, CFrame = myRoot.CFrame, Part = part }
     table.insert(Locations, locData)
+
     LocNameInput.Text = ""
     SelectedLocation = locData
     RefreshLocationList()
@@ -846,91 +871,20 @@ LocTpBtn.MouseButton1Click:Connect(function()
         if myRoot then myRoot.CFrame = SelectedLocation.CFrame * CFrame.new(0, 2, 0) end
     end
 end)
-MakeComponentDetachable(TpLocHolder, 150)
 
 --==================================================
--- ESP TAB SETUP & SLIDER DISTANCE CHECK
+-- ESP TAB SETUP & FREECAM
 --==================================================
 
 CreateESPCombo("PlayerESP", ESPPage, "player ESP", Settings.PlayerESPColor, function(c) Settings.PlayerESPColor = c end, function(s) Settings.PlayerESP = s end)
 CreateESPCombo("PlayerHitbox", ESPPage, "player hitbox", Settings.PlayerHitboxColor, function(c) Settings.PlayerHitboxColor = c end, function(s) Settings.PlayerHitbox = s end)
 CreateESPCombo("PlayerTrace", ESPPage, "player trace", Settings.PlayerTraceColor, function(c) Settings.PlayerTraceColor = c end, function(s) Settings.PlayerTrace = s end)
 
--- DISTANCE CHECK SLIDER COMPONENT
-local DistCheckHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 52), BackgroundColor3 = COLORS.Panel, Parent = ESPPage })
-AddCorner(DistCheckHolder, 5)
+CreateDistanceSlider(ESPPage)
 
-local DistTitle = Create("TextLabel", { Size = UDim2.new(1, -40, 0, 24), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = "distance check: 50", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = DistCheckHolder })
-
-local DistCheck = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0, 2), BackgroundColor3 = COLORS.Button, Text = "", Parent = DistCheckHolder })
-AddCorner(DistCheck, 4)
-AddStroke(DistCheck, Color3.fromRGB(75, 75, 85), 1)
-
-local DistSliderBar = Create("Frame", { Size = UDim2.new(1, -20, 0, 6), Position = UDim2.new(0, 10, 0, 34), BackgroundColor3 = COLORS.Button, Parent = DistCheckHolder })
-AddCorner(DistSliderBar, 3)
-
-local DistSliderFill = Create("Frame", { Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = COLORS.Accent, Parent = DistSliderBar })
-AddCorner(DistSliderFill, 3)
-
-local DistSliderKnob = Create("Frame", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0.5, -7, 0.5, -7), BackgroundColor3 = Color3.fromRGB(255, 255, 255), Parent = DistSliderBar })
-AddCorner(DistSliderKnob, 7)
-
-local function UpdateDistanceSlider(val)
-    val = math.clamp(math.floor(val), 0, 100)
-    Settings.DistanceCheckVal = val
-    DistTitle.Text = "distance check: " .. tostring(val)
-    local pct = val / 100
-    DistSliderFill.Size = UDim2.new(pct, 0, 1, 0)
-    DistSliderKnob.Position = UDim2.new(pct, -7, 0.5, -7)
-    SaveAutoConfig()
-end
-
-local isDraggingDistSlider = false
-DistSliderKnob.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isDraggingDistSlider = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isDraggingDistSlider = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if isDraggingDistSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local barAbsPos = DistSliderBar.AbsolutePosition.X
-        local barAbsSize = DistSliderBar.AbsoluteSize.X
-        local mouseX = input.Position.X
-        local pct = math.clamp((mouseX - barAbsPos) / barAbsSize, 0, 1)
-        UpdateDistanceSlider(pct * 100)
-    end
-end)
-
-local distState = false
-local function SetDistCheckState(st)
-    distState = st
-    Settings.DistanceCheck = st
-    DistCheck.BackgroundColor3 = distState and COLORS.Accent or COLORS.Button
-    DistCheck.Text = distState and "✓" or ""
-    DistCheck.TextColor3 = Color3.new(1, 1, 1)
-    SaveAutoConfig()
-end
-
-DistCheck.MouseButton1Click:Connect(function()
-    SetDistCheckState(not distState)
-end)
-
-UI_Controls["DistanceCheck"] = {
-    SetState = SetDistCheckState,
-    SetValue = UpdateDistanceSlider
-}
-MakeComponentDetachable(DistCheckHolder, 120)
-
--- FREECAM
-UserInputService.InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(input, gameProcessed)
     if not Settings.Freecam then return end
+    
     if input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Delta
         freecamYaw = freecamYaw - delta.X * 0.008
@@ -955,9 +909,11 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
                 if part:IsA("BasePart") then part.Anchored = true end
             end
         end
+        
         FreecamPos = Camera.CFrame.Position
         local x, y, z = Camera.CFrame:ToOrientation()
-        freecamYaw, freecamPitch = y, x
+        freecamYaw = y
+        freecamPitch = x
         Camera.CameraType = Enum.CameraType.Scriptable
     else
         if char then
@@ -970,6 +926,14 @@ CreateCheckbox("Freecam", ESPPage, "freecam", function(v)
             Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
         end
     end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if TraceLines[player] then
+        pcall(function() TraceLines[player]:Remove() end)
+        TraceLines[player] = nil
+    end
+    PlayerStats[player] = nil
 end)
 
 --==================================================
@@ -990,7 +954,9 @@ CreateCheckbox("AutoExecute", OptionPage, "auto execute", function(v)
     Settings.AutoExecute = v
     if v then
         local qFunc = GetQueueOnTeleport()
-        if qFunc then pcall(function() qFunc(SCRIPT_LOADER_CODE) end) end
+        if qFunc then
+            pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
+        end
     end
 end)
 
@@ -1003,7 +969,7 @@ CreateCheckbox("MenuLock", OptionPage, "menu lock", function(v)
 end)
 
 local function ApplySettingsToUI(newSettings)
-    DeserializeSettings(newSettings)
+    for k, v in pairs(newSettings) do Settings[k] = v end
 
     if UI_Controls["Speed"] then UI_Controls["Speed"].SetState(Settings.Speed.Enabled); UI_Controls["Speed"].SetValue(Settings.Speed.Value) end
     if UI_Controls["Jump"] then UI_Controls["Jump"].SetState(Settings.Jump.Enabled); UI_Controls["Jump"].SetValue(Settings.Jump.Value) end
@@ -1016,7 +982,10 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["PlayerHitbox"] then UI_Controls["PlayerHitbox"].SetState(Settings.PlayerHitbox); UI_Controls["PlayerHitbox"].SetColor(Settings.PlayerHitboxColor) end
     if UI_Controls["PlayerTrace"] then UI_Controls["PlayerTrace"].SetState(Settings.PlayerTrace); UI_Controls["PlayerTrace"].SetColor(Settings.PlayerTraceColor) end
 
-    if UI_Controls["DistanceCheck"] then UI_Controls["DistanceCheck"].SetState(Settings.DistanceCheck); UI_Controls["DistanceCheck"].SetValue(Settings.DistanceCheckVal) end
+    if UI_Controls["DistanceCheck"] then 
+        UI_Controls["DistanceCheck"].SetState(Settings.DistanceCheck)
+        UI_Controls["DistanceCheck"].SetValue(Settings.DistanceCheckValue or 50)
+    end
     if UI_Controls["Freecam"] then UI_Controls["Freecam"].SetState(Settings.Freecam) end
 
     if UI_Controls["Fullbright"] then UI_Controls["Fullbright"].SetState(Settings.Fullbright) end
@@ -1024,23 +993,160 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
     if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
     if UI_Controls["MenuLock"] then UI_Controls["MenuLock"].SetState(Settings.MenuLock) end
+
+    FlyToggleBtn.Visible = Settings.Fly
+    if not Settings.Fly then
+        isFlyingActive = false
+        FlyControls.Visible = false
+    end
+
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = 16
+        hum.JumpPower = 50
+        hum.UseJumpPower = false
+    end
 end
 
--- RESET & CONFIG BUTTONS
+-- RESET & CONFIG
 local OptionBtnHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 36), BackgroundTransparency = 1, Parent = OptionPage })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), Parent = OptionBtnHolder })
 
 local ResetBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Red, Text = "Reset Default", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
 AddCorner(ResetBtn, 6)
 
+local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Accent, Text = "Config", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
+AddCorner(ConfigBtn, 6)
+
 ResetBtn.MouseButton1Click:Connect(function()
-    ApplySettingsToUI(DefaultSettings)
-    SaveAutoConfig()
+    ShowConfirm("Khôi phục tất cả cài đặt về mặc định?", function()
+        ApplySettingsToUI(DefaultSettings)
+        SaveAutoConfig()
+    end)
 end)
 
+local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 30, Parent = ScreenGui })
+local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 31, Parent = ConfigOverlay })
+AddCorner(ConfigBoard, 8)
+AddStroke(ConfigBoard, COLORS.Accent, 1)
+
+Create("TextLabel", { Size = UDim2.new(1, -30, 0, 28), Position = UDim2.new(0, 10, 0, 2), BackgroundTransparency = 1, Text = "Config Manager", TextColor3 = COLORS.Text, TextSize = 12, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32, Parent = ConfigBoard })
+
+local ConfigClose = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 4), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 14, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
+AddCorner(ConfigClose, 4)
+ConfigClose.MouseButton1Click:Connect(function() ConfigOverlay.Visible = false end)
+
+local ConfigNameInput = Create("TextBox", { Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 32), BackgroundColor3 = COLORS.Panel, Text = "", PlaceholderText = "Tên config mới...", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 32, Parent = ConfigBoard })
+AddCorner(ConfigNameInput, 5)
+
+local SaveConfigBtn = Create("TextButton", { Size = UDim2.new(1, -20, 0, 24), Position = UDim2.new(0, 10, 0, 62), BackgroundColor3 = COLORS.Green, Text = "+ Lưu Config Hiện Tại", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
+AddCorner(SaveConfigBtn, 5)
+
+local ConfigScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -20, 0, 130), Position = UDim2.new(0, 10, 0, 92), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 32, Parent = ConfigBoard })
+Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = ConfigScroll })
+
+local function RefreshConfigList()
+    for _, c in ipairs(ConfigScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    for name, cfgData in pairs(SavedConfigs) do
+        local item = Create("Frame", { Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = COLORS.Panel, ZIndex = 33, Parent = ConfigScroll })
+        AddCorner(item, 4)
+
+        local nameLbl = Create("TextLabel", { Size = UDim2.new(1, -55, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 34, Parent = item })
+        local loadBtn = Create("TextButton", { Size = UDim2.new(0, 42, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = COLORS.Accent, Text = "Load", TextColor3 = Color3.new(1,1,1), TextSize = 9, Font = Enum.Font.GothamBold, ZIndex = 34, Parent = item })
+        AddCorner(loadBtn, 3)
+
+        loadBtn.MouseButton1Click:Connect(function()
+            ApplySettingsToUI(cfgData)
+            SaveAutoConfig()
+            ConfigOverlay.Visible = false
+        end)
+
+        BindLongPress(item, 1, function()
+            ShowConfirm("Xóa config '"..name.."'?", function()
+                SavedConfigs[name] = nil
+                SaveConfigsToFile()
+                RefreshConfigList()
+            end)
+        end)
+    end
+end
+
+SaveConfigBtn.MouseButton1Click:Connect(function()
+    local name = ConfigNameInput.Text
+    if name ~= "" then
+        local copy = {}
+        for k, v in pairs(Settings) do copy[k] = v end
+        SavedConfigs[name] = copy
+        SaveConfigsToFile()
+        ConfigNameInput.Text = ""
+        RefreshConfigList()
+    end
+end)
+
+ConfigBtn.MouseButton1Click:Connect(function()
+    RefreshConfigList()
+    ConfigOverlay.Visible = true
+end)
+
+-- AUTO LOAD PREVIOUS CONFIG ON INJECTION
+local autoConfig = LoadAutoConfig()
+if autoConfig then
+    ApplySettingsToUI(autoConfig)
+    if Settings.AutoExecute then
+        local qFunc = GetQueueOnTeleport()
+        if qFunc then
+            pcall(function() qFunc(SCRIPT_LOADER_CODE) end)
+        end
+    end
+end
+
 --==================================================
--- MAIN RENDER LOOP & SHIFTLOCK HANDLER
+-- DISTANCE & ADVANCED ANOMALY DETECTOR
 --==================================================
+
+local function TriggerPurple(p)
+    if not PlayerStats[p] then PlayerStats[p] = {} end
+    PlayerStats[p].PurpleEndTime = os.clock() + 3
+end
+
+local function GetPlayerColor(p)
+    local stats = PlayerStats[p] or {}
+    local char = p.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    if not char or not hum or hum.Health <= 0 then
+        return COLORS.Black
+    end
+
+    if stats.NearPlayer then
+        return COLORS.Yellow
+    end
+
+    if stats.KillerTime and (os.clock() - stats.KillerTime <= 10) then
+        return COLORS.Red
+    end
+
+    if stats.PurpleEndTime and os.clock() < stats.PurpleEndTime then
+        return COLORS.Purple
+    end
+
+    return Settings.PlayerESPColor
+end
+
+--==================================================
+-- RENDER LOOP
+--==================================================
+
+local function GetLine(p)
+    if not TraceLines[p] then
+        local line = Drawing.new("Line")
+        line.Thickness = 1.5
+        line.Transparency = 1
+        TraceLines[p] = line
+    end
+    return TraceLines[p]
+end
+
 RunService.RenderStepped:Connect(function(deltaTime)
     local char = LocalPlayer.Character
     local myRoot = char and char:FindFirstChild("HumanoidRootPart")
@@ -1060,10 +1166,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
     if Settings.Fly and isFlyingActive and myRoot and hum then
         local moveDir = hum.MoveDirection
         local flatMoveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-        if flatMoveDir.Magnitude > 0 then flatMoveDir = flatMoveDir.Unit end
+        if flatMoveDir.Magnitude > 0 then
+            flatMoveDir = flatMoveDir.Unit
+        end
 
         local flySpeed = Settings.Speed.Enabled and Settings.Speed.Value or 50
         local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
+        
         myRoot.AssemblyLinearVelocity = Vector3.new(flatMoveDir.X * flySpeed, ySpeed, flatMoveDir.Z * flySpeed)
     end
 
@@ -1075,16 +1184,24 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     if Settings.Freecam then
         Camera.CameraType = Enum.CameraType.Scriptable
+        
         local moveVector = Vector3.zero
-        if MasterControl and MasterControl.GetMoveVector then moveVector = MasterControl:GetMoveVector() end
+        if MasterControl and MasterControl.GetMoveVector then
+            moveVector = MasterControl:GetMoveVector()
+        end
 
         local speed = 1.5
         local yawCFrame = CFrame.Angles(0, freecamYaw, 0)
+        
         local forwardDir = yawCFrame.LookVector
         local rightDir = yawCFrame.RightVector
 
-        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 1 or 0)
-        FreecamPos = FreecamPos + (rightDir * (moveVector.X * speed)) + (forwardDir * (-moveVector.Z * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
+        local moveX = moveVector.X
+        local moveZ = moveVector.Z
+
+        local verticalSpeed = (flyUpHeld and 1 or 0) - (flyDownHeld and 40 or 0)
+
+        FreecamPos = FreecamPos + (rightDir * (moveX * speed)) + (forwardDir * (-moveZ * speed)) + Vector3.new(0, verticalSpeed * speed * 2, 0)
         
         local rotCFrame = CFrame.Angles(0, freecamYaw, 0) * CFrame.Angles(freecamPitch, 0, 0)
         Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
@@ -1096,14 +1213,15 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Lighting.GlobalShadows = false
     end
 
-    -- SHIFTLOCK (LOCK CAMERA DIRECTION IMMEDIATELY WHEN CHECKED)
+    -- DIRECT SHIFTLOCK (NO FLOATING BUTTON)
     if Settings.ShiftLock and myRoot then
         local lookVector = Camera.CFrame.LookVector
         myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
     end
 
-    -- ESP & DISTANCE CHECK LOGIC
+    -- ESP & DYNAMIC DISTANCE CHECK
     local allPlayers = Players:GetPlayers()
+    
     for _, p in ipairs(allPlayers) do
         if not PlayerStats[p] then PlayerStats[p] = {} end
         PlayerStats[p].NearPlayer = false
@@ -1111,16 +1229,19 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     for i = 1, #allPlayers do
         local p1 = allPlayers[i]
-        local root1 = p1.Character and p1.Character:FindFirstChild("HumanoidRootPart")
+        local char1 = p1.Character
+        local root1 = char1 and char1:FindFirstChild("HumanoidRootPart")
 
         if root1 then
             for j = i + 1, #allPlayers do
                 local p2 = allPlayers[j]
-                local root2 = p2.Character and p2.Character:FindFirstChild("HumanoidRootPart")
+                local char2 = p2.Character
+                local root2 = char2 and char2:FindFirstChild("HumanoidRootPart")
 
                 if root2 then
                     local dist = (root1.Position - root2.Position).Magnitude
-                    if Settings.DistanceCheck and dist <= Settings.DistanceCheckVal then
+                    local maxDist = Settings.DistanceCheckValue or 50
+                    if Settings.DistanceCheck and dist <= maxDist then
                         PlayerStats[p1].NearPlayer = true
                         PlayerStats[p2].NearPlayer = true
                     end
@@ -1132,8 +1253,26 @@ RunService.RenderStepped:Connect(function(deltaTime)
     for _, p in ipairs(allPlayers) do
         if p ~= LocalPlayer and p.Character then
             local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                local displayColor = PlayerStats[p].NearPlayer and COLORS.Yellow or Settings.PlayerESPColor
+            local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
+
+            if targetRoot and targetHum then
+                local stats = PlayerStats[p]
+                if not stats.LastPos then stats.LastPos = targetRoot.Position; stats.LastHP = targetHum.Health end
+
+                if deltaTime > 0 then
+                    local realSpeed = (targetRoot.Position - stats.LastPos).Magnitude / deltaTime
+                    if realSpeed > 35 then TriggerPurple(p) end
+                end
+                stats.LastPos = targetRoot.Position
+
+                if targetHum.JumpPower > 65 then TriggerPurple(p) end
+
+                if targetHum.Health < stats.LastHP then
+                    TriggerPurple(p)
+                    stats.LastHP = targetHum.Health
+                end
+
+                local displayColor = GetPlayerColor(p)
 
                 local espTag = targetRoot:FindFirstChild("ToanESP")
                 if Settings.PlayerESP then
@@ -1141,21 +1280,101 @@ RunService.RenderStepped:Connect(function(deltaTime)
                         local bill = Create("BillboardGui", { Name = "ToanESP", Size = UDim2.new(0, 120, 0, 20), StudsOffset = Vector3.new(0, 3, 0), AlwaysOnTop = true, Adornee = targetRoot, Parent = targetRoot })
                         Create("TextLabel", { Name = "Txt", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, TextSize = 11, Font = Enum.Font.GothamBold, Parent = bill })
                     end
-                    targetRoot.ToanESP.Txt.TextColor3 = displayColor
-                    targetRoot.ToanESP.Txt.Text = p.Name
+                    local label = targetRoot.ToanESP.Txt
+                    label.TextColor3 = displayColor
+                    label.Text = p.Name
                 elseif espTag then
                     espTag:Destroy()
                 end
+
+                local hb = targetRoot:FindFirstChild("ToanHitboxAdorn")
+                if Settings.PlayerHitbox then
+                    if not hb then
+                        hb = Create("BoxHandleAdornment", { Name = "ToanHitboxAdorn", Size = Vector3.new(4, 5, 4), AlwaysOnTop = true, ZIndex = 10, Transparency = 0.5, Adornee = targetRoot, Parent = targetRoot })
+                    end
+                    hb.Color3 = displayColor
+                elseif hb then
+                    hb:Destroy()
+                end
+
+                local line = GetLine(p)
+                if Settings.PlayerTrace then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(targetRoot.Position)
+                    if onScreen then
+                        line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        line.To = Vector2.new(screenPos.X, screenPos.Y)
+                        line.Color = displayColor
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                else
+                    line.Visible = false
+                end
             end
+        else
+            if TraceLines[p] then TraceLines[p].Visible = false end
         end
     end
 end)
 
--- LOAD SAVED CONFIG TO UI UPON SCRIPT LOAD
-ApplySettingsToUI(Settings)
+--==================================================
+-- MINIMIZE BUTTON & MENU LOCK SYSTEM
+--==================================================
 
--- MINIMIZE SYSTEM
-MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false end)
-CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+local MiniButton = Create("ImageButton", {
+    Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0, 15, 0.5, -25),
+    BackgroundColor3 = COLORS.Panel, BackgroundTransparency = 1, BorderSizePixel = 0,
+    Visible = false, ZIndex = 100, Parent = ScreenGui
+})
+AddCorner(MiniButton, 10)
+AddStroke(MiniButton, COLORS.Accent, 1.5)
 
-print("ToanCreator GUI - Advanced Config, Detachable UI & Dynamic Slider Loaded!")
+task.spawn(function()
+    local imgUrl = "https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"
+    local fileName = "ToanCreator_Icon.png"
+    
+    if writefile and getcustomasset then
+        if not isfile or not isfile(fileName) then
+            local success, content = pcall(function() return game:HttpGet(imgUrl) end)
+            if success and content then writefile(fileName, content) end
+        end
+        if isfile and isfile(fileName) then MiniButton.Image = getcustomasset(fileName) end
+    else
+        MiniButton.Image = imgUrl
+    end
+end)
+
+MakeDraggable(MiniButton, MiniButton, function()
+    return not Settings.MenuLock
+end)
+
+local lastClickTime = 0
+MiniButton.MouseButton1Click:Connect(function()
+    if Settings.MenuLock then
+        local currentTime = os.clock()
+        if currentTime - lastClickTime <= 0.4 then
+            Main.Visible = true
+            MiniButton.Visible = false
+            lastClickTime = 0
+        else
+            lastClickTime = currentTime
+        end
+    else
+        Main.Visible = true
+        MiniButton.Visible = false
+    end
+end)
+
+MinimizeButton.MouseButton1Click:Connect(function() Main.Visible = false; MiniButton.Visible = true end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    ShowConfirm("Đóng Script ToanCreator?", function()
+        if getgenv then getgenv().ToanCreatorLoaded = false end
+        for _, l in pairs(TraceLines) do pcall(function() l:Remove() end) end
+        if workspace:FindFirstChild("ToanCreator_Markers") then workspace.ToanCreator_Markers:Destroy() end
+        ScreenGui:Destroy()
+    end)
+end)
+
+print("ToanCreator GUI v9 - Config Auto-Save & Resizable UI Loaded!")
