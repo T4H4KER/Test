@@ -5,7 +5,6 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Teams = game:GetService("Teams")
 local TweenService = game:GetService("TweenService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 --// Constants for Max Overlay
 local HIGHEST_ZINDEX = 2147483647
@@ -27,17 +26,12 @@ local currentTargetPart = nil
 local blacklistedTargets = {}
 local blacklistedTeams = {}
 
---// Variables (Movement Mods & Auto Shoot)
+--// Variables (Movement Mods)
 local speedValue = 32
-local jumpValue = 100
+local jumpValue = 70
 local speedEnabled = false
 local jumpEnabled = false
 local noclipEnabled = false
-
-local autoShootEnabled = false
-local autoShootLocked = false
-local lastShootTime = 0
-local shootInterval = 0.05 -- 50ms
 
 -- Helper Function: Đảm bảo tất cả UI element luôn ở ZIndex cao nhất
 local function applyMaxZIndex(guiObject)
@@ -102,29 +96,6 @@ xButton.Parent = screenGui
 local xCorner = Instance.new("UICorner")
 xCorner.CornerRadius = UDim.new(1, 0)
 xCorner.Parent = xButton
-
---------------------------------------------------------------------------------
--- AUTO SHOOT BUTTON (NÚT VÀNG TRÒN 15PX, ĐỘ TRONG SUỐT 80%)
---------------------------------------------------------------------------------
-local autoShootBtn = Instance.new("TextButton")
-autoShootBtn.Name = "AutoShootButton"
-autoShootBtn.Size = UDim2.new(0, 15, 0, 15)
-autoShootBtn.Position = UDim2.new(0.5, 80, 0.5, 0) -- Vị trí mặc định ở giữa màn hình
-autoShootBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 0) -- Màu vàng
-autoShootBtn.BackgroundTransparency = 0.8 -- Độ trong suốt 80%
-autoShootBtn.Text = ""
-autoShootBtn.Visible = false
-autoShootBtn.Parent = screenGui
-
-local shootCorner = Instance.new("UICorner")
-shootCorner.CornerRadius = UDim.new(1, 0) -- Hình tròn
-shootCorner.Parent = autoShootBtn
-
-local shootStroke = Instance.new("UIStroke")
-shootStroke.Color = Color3.fromRGB(255, 255, 255)
-shootStroke.Thickness = 1
-shootStroke.Transparency = 0.5
-shootStroke.Parent = autoShootBtn
 
 --------------------------------------------------------------------------------
 -- MENU FRAME (GIAO DIỆN)
@@ -207,7 +178,7 @@ local function updateToggleVisual(button, state, labelText)
     end
 end
 
--- Hàm tạo Ô nhập số
+-- Hàm tạo Ô nhập số (cho Speed / Jump)
 local function createInputModTile(labelText, defaultVal)
     local frame = Instance.new("Frame")
     frame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
@@ -244,9 +215,45 @@ local function createInputModTile(labelText, defaultVal)
     return frame, toggleBtn, textBox
 end
 
+-- Hàm tạo Ô nhập số luôn luôn bật (Aim Distance)
+local function createAlwaysOnInputTile(labelText, defaultVal)
+    local frame = Instance.new("Frame")
+    frame.BackgroundColor3 = Color3.fromRGB(0, 140, 80)
+
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 6)
+    frameCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 11
+    label.Text = labelText
+    label.Parent = frame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.35, -4, 1, -6)
+    textBox.Position = UDim2.new(0.65, 0, 0, 3)
+    textBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    textBox.TextColor3 = Color3.fromRGB(0, 255, 150)
+    textBox.Font = Enum.Font.GothamBold
+    textBox.TextSize = 12
+    textBox.Text = tostring(defaultVal)
+    textBox.ClearTextOnFocus = false
+    textBox.Parent = frame
+
+    local tbCorner = Instance.new("UICorner")
+    tbCorner.CornerRadius = UDim.new(0, 4)
+    tbCorner.Parent = textBox
+
+    return frame, textBox
+end
+
 -- Tạo các phần tử UI
 local aimToggle = createCompactToggle("Auto Aim")
-local autoShootToggle = createCompactToggle("Auto Shoot")
 local espToggle = createCompactToggle("ESP")
 local teamCheckToggle = createCompactToggle("Team Check")
 local wallCheckToggle = createCompactToggle("Wall Check")
@@ -255,14 +262,15 @@ local lockCenterToggle = createCompactToggle("Lock Center")
 local drawLinesToggle = createCompactToggle("Draw Lines")
 local noclipToggle = createCompactToggle("Noclip")
 
+local aimDistTile, aimDistInput = createAlwaysOnInputTile("Aim Dist", 200)
 local speedTile, speedToggle, speedInput = createInputModTile("Speed", 32)
-local jumpTile, jumpToggle, jumpInput = createInputModTile("Jump", 100)
+local jumpTile, jumpToggle, jumpInput = createInputModTile("Jump", 70)
 
 local teamListBtn = createCompactToggle("Blacklist Team >")
 
 -- Add vào Grid Container
 aimToggle.Parent = scrollContainer
-autoShootToggle.Parent = scrollContainer
+aimDistTile.Parent = scrollContainer
 espToggle.Parent = scrollContainer
 teamCheckToggle.Parent = scrollContainer
 wallCheckToggle.Parent = scrollContainer
@@ -336,9 +344,6 @@ makeDraggable(gearButton)
 makeDraggable(refreshButton)
 makeDraggable(xButton)
 makeDraggable(menuFrame)
-makeDraggable(autoShootBtn, function()
-    return not autoShootLocked -- Chỉ kéo được nút vàng khi chưa bị khóa vị trí
-end)
 
 -- Cập nhật danh sách Team
 local function updateTeamListUI()
@@ -422,55 +427,13 @@ aimToggle.MouseButton1Click:Connect(function()
     setAimState(not aiming)
 end)
 
---------------------------------------------------------------------------------
--- SỰ KIỆN AUTO SHOOT (NHẤN MỘT LẦN HOẶC ẤN GIỮ ĐỂ KHÓA VỊ TRÍ)
---------------------------------------------------------------------------------
-local pressStartTime = 0
-local isPressingAutoShoot = false
-
-autoShootToggle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isPressingAutoShoot = true
-        pressStartTime = tick()
-
-        -- Đếm thời gian giữ nút (0.8 giây để Khóa / Mở khóa)
-        task.delay(0.8, function()
-            if isPressingAutoShoot and (tick() - pressStartTime >= 0.75) then
-                autoShootLocked = not autoShootLocked
-                if autoShootLocked then
-                    autoShootToggle.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-                    autoShootToggle.Text = "Auto Shoot [LOCKED]"
-                else
-                    if autoShootEnabled then
-                        autoShootToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
-                        autoShootToggle.Text = "Auto Shoot [ON]"
-                    else
-                        autoShootToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-                        autoShootToggle.Text = "Auto Shoot"
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-autoShootToggle.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        local pressDuration = tick() - pressStartTime
-        isPressingAutoShoot = false
-
-        -- Nhấn nhanh (< 0.8 giây): Bật / Tắt nút vàng
-        if pressDuration < 0.75 then
-            autoShootEnabled = not autoShootEnabled
-            autoShootBtn.Visible = autoShootEnabled
-
-            if autoShootLocked then
-                autoShootToggle.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-                autoShootToggle.Text = "Auto Shoot [LOCKED]"
-            else
-                updateToggleVisual(autoShootToggle, autoShootEnabled, "Auto Shoot")
-            end
-        end
+-- Aim Distance Event
+aimDistInput.FocusLost:Connect(function()
+    local val = tonumber(aimDistInput.Text)
+    if val then
+        maxDistance = val
+    else
+        aimDistInput.Text = tostring(maxDistance)
     end
 end)
 
@@ -622,7 +585,7 @@ local function isBlacklistedTeam(target)
     return false
 end
 
--- Lấy mục tiêu trong bán kính 200 stud
+-- Lấy mục tiêu trong bán kính maxDistance stud
 local function getTarget()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
@@ -706,22 +669,6 @@ local function aimAt(targetPart)
     end
 end
 
--- Hàm kích hoạt bấm vào vị trí của nút Auto Shoot
-local function triggerAutoShoot()
-    if tick() - lastShootTime >= shootInterval then
-        lastShootTime = tick()
-        
-        -- Lấy vị trí tâm của nút vàng trên màn hình
-        local posX = autoShootBtn.AbsolutePosition.X + (autoShootBtn.AbsoluteSize.X / 2)
-        local posY = autoShootBtn.AbsolutePosition.Y + (autoShootBtn.AbsoluteSize.Y / 2)
-
-        -- Giả lập bấm chuột/chạm vào tâm nút vàng
-        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, true, game, 1)
-        task.wait(0.01)
-        VirtualInputManager:SendMouseButtonEvent(posX, posY, 0, false, game, 1)
-    end
-end
-
 applyMaxZIndex(screenGui)
 
 -- Main Loop
@@ -765,7 +712,7 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
         espBoxes = {}
     end
 
-    -- 3. Xử lý Aimbot & Auto Shoot
+    -- 3. Xử lý Aimbot
     if aiming then
         local isValidTarget = false
         if currentTargetPart and currentTargetPart.Parent and currentTargetPart.Parent:FindFirstChild("Humanoid") then
@@ -787,11 +734,6 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
 
         if currentTargetPart then
             aimAt(currentTargetPart)
-
-            -- Nếu Auto Shoot được bật và đã aim trúng mục tiêu hợp lệ -> Tự động click nút vàng 50ms/lần
-            if autoShootEnabled then
-                triggerAutoShoot()
-            end
         end
     else
         currentTargetPart = nil
