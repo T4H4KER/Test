@@ -453,8 +453,8 @@ wallCheckToggle.MouseButton1Click:Connect(function()
 end)
 
 aimPartToggle.MouseButton1Click:Connect(function()
-    aimPart = (aimPart == "Head" and "HumanoidRootPart" or "Head")
-    aimPartToggle.Text = "Aim: " .. (aimPart == "Head" and "Head" or "Torso")
+    aimPart = (aimPart == "Head" and "Torso" or "Head")
+    aimPartToggle.Text = "Aim: " .. aimPart
 end)
 
 lockCenterToggle.MouseButton1Click:Connect(function()
@@ -525,14 +525,13 @@ local function createESP(playerTarget)
     box.Color3 = Color3.new(1, 1, 0)
     box.AlwaysOnTop = true
     box.ZIndex = HIGHEST_ZINDEX
-    box.Adornee = playerTarget.Character and playerTarget.Character:FindFirstChild("HumanoidRootPart")
     box.Parent = espFolder
     return box
 end
 
 local function updateESP()
     for plr, box in pairs(espBoxes) do
-        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 then
             box.Adornee = plr.Character.HumanoidRootPart
             if teamCheck and player.Team and plr.Team then
                 box.Color3 = (plr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
@@ -540,8 +539,7 @@ local function updateESP()
                 box.Color3 = Color3.new(1, 1, 0)
             end
         else
-            box:Destroy()
-            espBoxes[plr] = nil
+            box.Adornee = nil
         end
     end
 end
@@ -553,20 +551,32 @@ lineDrawer.Thickness = 2
 lineDrawer.Transparency = 1
 lineDrawer.Visible = false
 
--- Wall Check
+-- Dynamic Target Part Finder (Tự động tìm vị trí Head/Torso tương thích R6 và R15)
+local function getAimTargetPart(char)
+    if not char then return nil end
+    if aimPart == "Head" then
+        return char:FindFirstChild("Head")
+    else
+        return char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart")
+    end
+end
+
+-- Wall Check Fix
 local function canSeeTarget(part)
     if not wallCheck then return true end
     local origin = camera.CFrame.Position
     local direction = (part.Position - origin)
+    
     local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {player.Character}
-    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local ignoreList = {camera}
+    if player.Character then table.insert(ignoreList, player.Character) end
+    if part.Parent then table.insert(ignoreList, part.Parent) end
+    
+    rayParams.FilterDescendantsInstances = ignoreList
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-    local raycastResult = Workspace:Raycast(origin, direction.Unit * direction.Magnitude, rayParams)
-    if raycastResult and raycastResult.Instance and not part:IsDescendantOf(raycastResult.Instance.Parent) then
-        return false
-    end
-    return true
+    local raycastResult = Workspace:Raycast(origin, direction, rayParams)
+    return raycastResult == nil
 end
 
 -- Team Check
@@ -596,14 +606,14 @@ local function getTarget()
     local center2d = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 
     for _, target in pairs(Players:GetPlayers()) do
-        if target ~= player and target.Character and target.Character:FindFirstChild(aimPart) then
+        if target ~= player and target.Character then
             if blacklistedTargets[target] then continue end
             if isBlacklistedTeam(target) then continue end
 
-            local part = target.Character[aimPart]
-            local hum = target.Character:FindFirstChild("Humanoid")
+            local part = getAimTargetPart(target.Character)
+            local hum = target.Character:FindFirstChildOfClass("Humanoid")
             
-            if hum and hum.Health > 0 then
+            if part and hum and hum.Health > 0 then
                 local worldDist = (part.Position - myPos).Magnitude
                 if worldDist > maxDistance then continue end
 
@@ -669,6 +679,14 @@ local function aimAt(targetPart)
     end
 end
 
+-- Dọn dẹp ESP khi player thoát
+Players.PlayerRemoving:Connect(function(plr)
+    if espBoxes[plr] then
+        espBoxes[plr]:Destroy()
+        espBoxes[plr] = nil
+    end
+end)
+
 applyMaxZIndex(screenGui)
 
 -- Main Loop
@@ -715,8 +733,8 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
     -- 3. Xử lý Aimbot
     if aiming then
         local isValidTarget = false
-        if currentTargetPart and currentTargetPart.Parent and currentTargetPart.Parent:FindFirstChild("Humanoid") then
-            local hum = currentTargetPart.Parent.Humanoid
+        if currentTargetPart and currentTargetPart.Parent and currentTargetPart.Parent:FindFirstChildOfClass("Humanoid") then
+            local hum = currentTargetPart.Parent:FindFirstChildOfClass("Humanoid")
             local targetPlr = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
             local myChar = player.Character
 
