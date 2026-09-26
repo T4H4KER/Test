@@ -512,7 +512,7 @@ noclipToggle.MouseButton1Click:Connect(function()
     updateToggleVisual(noclipToggle, noclipEnabled, "Noclip")
 end)
 
--- ESP Setup
+-- ESP Setup (Tối ưu cho Battle Royale Respawn)
 local espFolder = Instance.new("Folder")
 espFolder.Name = "ESPFolder"
 espFolder.Parent = screenGui
@@ -529,17 +529,63 @@ local function createESP(playerTarget)
     return box
 end
 
-local function updateESP()
-    for plr, box in pairs(espBoxes) do
-        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 then
-            box.Adornee = plr.Character.HumanoidRootPart
-            if teamCheck and player.Team and plr.Team then
-                box.Color3 = (plr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
-            else
-                box.Color3 = Color3.new(1, 1, 0)
+local function removeESP(plr)
+    if espBoxes[plr] then
+        espBoxes[plr]:Destroy()
+        espBoxes[plr] = nil
+    end
+end
+
+-- Lắng nghe sự kiện người chơi respawn để reset ESP ngay lập tức
+local function setupPlayerRespawnListener(plr)
+    plr.CharacterAdded:Connect(function()
+        removeESP(plr)
+        if currentTargetPart and currentTargetPart.Parent then
+            local targetPlr = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
+            if targetPlr == plr then
+                currentTargetPart = nil
             end
-        else
-            box.Adornee = nil
+        end
+    end)
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        setupPlayerRespawnListener(plr)
+    end
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= player then
+        setupPlayerRespawnListener(plr)
+    end
+end)
+
+Players.PlayerRemoving:Connect(removeESP)
+
+local function updateESP()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local char = plr.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+            if char and root and hum and hum.Health > 0 then
+                if not espBoxes[plr] then
+                    espBoxes[plr] = createESP(plr)
+                end
+                
+                local box = espBoxes[plr]
+                box.Adornee = root
+                
+                if teamCheck and player.Team and plr.Team then
+                    box.Color3 = (plr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
+                else
+                    box.Color3 = Color3.new(1, 1, 0)
+                end
+            else
+                removeESP(plr)
+            end
         end
     end
 end
@@ -551,7 +597,7 @@ lineDrawer.Thickness = 2
 lineDrawer.Transparency = 1
 lineDrawer.Visible = false
 
--- Dynamic Target Part Finder (Tự động tìm vị trí Head/Torso tương thích R6 và R15)
+-- Dynamic Target Part Finder
 local function getAimTargetPart(char)
     if not char then return nil end
     if aimPart == "Head" then
@@ -679,14 +725,6 @@ local function aimAt(targetPart)
     end
 end
 
--- Dọn dẹp ESP khi player thoát
-Players.PlayerRemoving:Connect(function(plr)
-    if espBoxes[plr] then
-        espBoxes[plr]:Destroy()
-        espBoxes[plr] = nil
-    end
-end)
-
 applyMaxZIndex(screenGui)
 
 -- Main Loop
@@ -717,17 +755,11 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
 
     -- 2. Xử lý ESP
     if espEnabled then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and not espBoxes[plr] then
-                espBoxes[plr] = createESP(plr)
-            end
-        end
         updateESP()
     else
-        for _, box in pairs(espBoxes) do
-            box:Destroy()
+        for plr, _ in pairs(espBoxes) do
+            removeESP(plr)
         end
-        espBoxes = {}
     end
 
     -- 3. Xử lý Aimbot
