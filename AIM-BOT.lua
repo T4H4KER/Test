@@ -137,7 +137,7 @@ scrollContainer.ScrollBarThickness = 4
 scrollContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 scrollContainer.Parent = menuFrame
 
--- Sắp xếp theo dạng GRID (Ngang 2 cột x Dọc)
+-- Sắp xếp theo dạng GRID
 local gridLayout = Instance.new("UIGridLayout")
 gridLayout.CellSize = UDim2.new(0, 118, 0, 34)
 gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
@@ -512,13 +512,13 @@ noclipToggle.MouseButton1Click:Connect(function()
     updateToggleVisual(noclipToggle, noclipEnabled, "Noclip")
 end)
 
--- ESP Setup (Tối ưu cho Battle Royale Respawn)
+-- ESP Engine Dynamic
 local espFolder = Instance.new("Folder")
 espFolder.Name = "ESPFolder"
 espFolder.Parent = screenGui
 local espBoxes = {}
 
-local function createESP(playerTarget)
+local function createESP()
     local box = Instance.new("BoxHandleAdornment")
     box.Size = Vector3.new(4, 6, 2)
     box.Transparency = 0.8
@@ -529,50 +529,30 @@ local function createESP(playerTarget)
     return box
 end
 
-local function removeESP(plr)
-    if espBoxes[plr] then
-        espBoxes[plr]:Destroy()
-        espBoxes[plr] = nil
-    end
-end
-
--- Lắng nghe sự kiện người chơi respawn để reset ESP ngay lập tức
-local function setupPlayerRespawnListener(plr)
-    plr.CharacterAdded:Connect(function()
-        removeESP(plr)
-        if currentTargetPart and currentTargetPart.Parent then
-            local targetPlr = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
-            if targetPlr == plr then
-                currentTargetPart = nil
-            end
+-- Tìm Character chuẩn nhất của Player (chống game tạo Custom Character)
+local function getValidCharacter(plr)
+    local char = plr.Character or Workspace:FindFirstChild(plr.Name)
+    if char and char:IsDescendantOf(Workspace) then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("Head")
+        if hum and root and hum.Health > 0 then
+            return char, hum, root
         end
-    end)
-end
-
-for _, plr in ipairs(Players:GetPlayers()) do
-    if plr ~= player then
-        setupPlayerRespawnListener(plr)
     end
+    return nil, nil, nil
 end
-
-Players.PlayerAdded:Connect(function(plr)
-    if plr ~= player then
-        setupPlayerRespawnListener(plr)
-    end
-end)
-
-Players.PlayerRemoving:Connect(removeESP)
 
 local function updateESP()
-    for _, plr in pairs(Players:GetPlayers()) do
+    local activePlayers = {}
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then
-            local char = plr.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            activePlayers[plr] = true
+            local char, hum, root = getValidCharacter(plr)
 
-            if char and root and hum and hum.Health > 0 then
-                if not espBoxes[plr] then
-                    espBoxes[plr] = createESP(plr)
+            if char and hum and root then
+                if not espBoxes[plr] or not espBoxes[plr].Parent then
+                    espBoxes[plr] = createESP()
                 end
                 
                 local box = espBoxes[plr]
@@ -584,8 +564,19 @@ local function updateESP()
                     box.Color3 = Color3.new(1, 1, 0)
                 end
             else
-                removeESP(plr)
+                if espBoxes[plr] then
+                    espBoxes[plr]:Destroy()
+                    espBoxes[plr] = nil
+                end
             end
+        end
+    end
+
+    -- Dọn dẹp ESP của những người chơi đã thoát Match/Game
+    for plr, box in pairs(espBoxes) do
+        if not activePlayers[plr] then
+            box:Destroy()
+            espBoxes[plr] = nil
         end
     end
 end
@@ -643,42 +634,43 @@ end
 
 -- Lấy mục tiêu trong bán kính maxDistance stud
 local function getTarget()
-    local myChar = player.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
-    local myPos = myChar.HumanoidRootPart.Position
+    local _, _, myRoot = getValidCharacter(player)
+    if not myRoot then return nil end
+    local myPos = myRoot.Position
 
     local closest = nil
     local shortestDist = math.huge
     local center2d = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 
     for _, target in pairs(Players:GetPlayers()) do
-        if target ~= player and target.Character then
+        if target ~= player then
             if blacklistedTargets[target] then continue end
             if isBlacklistedTeam(target) then continue end
 
-            local part = getAimTargetPart(target.Character)
-            local hum = target.Character:FindFirstChildOfClass("Humanoid")
-            
-            if part and hum and hum.Health > 0 then
-                local worldDist = (part.Position - myPos).Magnitude
-                if worldDist > maxDistance then continue end
+            local char, hum, _ = getValidCharacter(target)
+            if char and hum then
+                local part = getAimTargetPart(char)
+                if part then
+                    local worldDist = (part.Position - myPos).Magnitude
+                    if worldDist > maxDistance then continue end
 
-                if isTeammate(target) then continue end
-                if not canSeeTarget(part) then continue end
+                    if isTeammate(target) then continue end
+                    if not canSeeTarget(part) then continue end
 
-                if lockToCenter then
-                    local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-                    if not onScreen then continue end
+                    if lockToCenter then
+                        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                        if not onScreen then continue end
 
-                    local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center2d).Magnitude
-                    if distFromCenter < shortestDist then
-                        shortestDist = distFromCenter
-                        closest = part
-                    end
-                else
-                    if worldDist < shortestDist then
-                        shortestDist = worldDist
-                        closest = part
+                        local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center2d).Magnitude
+                        if distFromCenter < shortestDist then
+                            shortestDist = distFromCenter
+                            closest = part
+                        end
+                    else
+                        if worldDist < shortestDist then
+                            shortestDist = worldDist
+                            closest = part
+                        end
                     end
                 end
             end
@@ -727,21 +719,18 @@ end
 
 applyMaxZIndex(screenGui)
 
--- Main Loop
+-- Main Loop - Realtime Dynamic Scan
 RunService:UnbindFromRenderStep("AimbotCameraUpdate")
 RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function()
     -- 1. Xử lý Speed, Jump, Noclip
-    local char = player.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            if speedEnabled then
-                hum.WalkSpeed = speedValue
-            end
-            if jumpEnabled then
-                hum.UseJumpPower = true
-                hum.JumpPower = jumpValue
-            end
+    local char, hum, _ = getValidCharacter(player)
+    if char and hum then
+        if speedEnabled then
+            hum.WalkSpeed = speedValue
+        end
+        if jumpEnabled then
+            hum.UseJumpPower = true
+            hum.JumpPower = jumpValue
         end
 
         if noclipEnabled then
@@ -757,27 +746,31 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
     if espEnabled then
         updateESP()
     else
-        for plr, _ in pairs(espBoxes) do
-            removeESP(plr)
+        for plr, box in pairs(espBoxes) do
+            box:Destroy()
+            espBoxes[plr] = nil
         end
     end
 
     -- 3. Xử lý Aimbot
     if aiming then
         local isValidTarget = false
-        if currentTargetPart and currentTargetPart.Parent and currentTargetPart.Parent:FindFirstChildOfClass("Humanoid") then
+        
+        -- Kiếm tra mục tiêu hiện tại còn hợp lệ/sống hay không
+        if currentTargetPart and currentTargetPart:IsDescendantOf(Workspace) and currentTargetPart.Parent then
             local hum = currentTargetPart.Parent:FindFirstChildOfClass("Humanoid")
             local targetPlr = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
-            local myChar = player.Character
+            local _, _, myRoot = getValidCharacter(player)
 
-            if hum.Health > 0 and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-                local worldDist = (currentTargetPart.Position - myChar.HumanoidRootPart.Position).Magnitude
+            if hum and hum.Health > 0 and myRoot then
+                local worldDist = (currentTargetPart.Position - myRoot.Position).Magnitude
                 if worldDist <= maxDistance and canSeeTarget(currentTargetPart) and not isBlacklistedTeam(targetPlr) then
                     isValidTarget = true
                 end
             end
         end
 
+        -- Nếu mục tiêu chết/hồi sinh/ra khỏi phạm vi -> Tự động tìm target mới ngay lập tức
         if not isValidTarget then
             currentTargetPart = getTarget()
         end
