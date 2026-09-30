@@ -26,6 +26,10 @@ local currentTargetPart = nil
 local blacklistedTargets = {}
 local blacklistedTeams = {}
 
+-- Bảng lưu danh sách Bot và theo dõi di chuyển
+local botCache = {}
+local botMovementTracker = {} 
+
 --// Variables (Movement Mods)
 local speedValue = 32
 local jumpValue = 70
@@ -58,7 +62,7 @@ screenGui.DescendantAdded:Connect(function(descendant)
     end
 end)
 
--- Gear Button (Nút cài đặt)
+-- Gear Button
 local gearButton = Instance.new("ImageButton")
 gearButton.Size = UDim2.new(0, 36, 0, 36)
 gearButton.Position = UDim2.new(0.5, -60, 0.04, 0)
@@ -66,7 +70,7 @@ gearButton.BackgroundTransparency = 1
 gearButton.Image = "rbxassetid://6031091006"
 gearButton.Parent = screenGui
 
--- Switch Target Button (Nút Refresh)
+-- Switch Target Button
 local refreshButton = Instance.new("ImageButton")
 refreshButton.Size = UDim2.new(0, 40, 0, 40)
 refreshButton.Position = UDim2.new(0.5, 25, 0.04, 0)
@@ -80,7 +84,7 @@ local refreshCorner = Instance.new("UICorner")
 refreshCorner.CornerRadius = UDim.new(1, 0)
 refreshCorner.Parent = refreshButton
 
--- Toggle Aim "X" Button (Nút X Bật/Tắt Auto Aim)
+-- Toggle Aim "X" Button
 local xButton = Instance.new("TextButton")
 xButton.Size = UDim2.new(0, 40, 0, 40)
 xButton.Position = UDim2.new(0.5, -20, 0.04, 0)
@@ -127,7 +131,7 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 10)
 titleCorner.Parent = titleLabel
 
--- Container cuộn cho các Nút/Tính năng
+-- Scroll Container
 local scrollContainer = Instance.new("ScrollingFrame")
 scrollContainer.Size = UDim2.new(1, -12, 1, -40)
 scrollContainer.Position = UDim2.new(0, 6, 0, 36)
@@ -137,7 +141,6 @@ scrollContainer.ScrollBarThickness = 4
 scrollContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 scrollContainer.Parent = menuFrame
 
--- Sắp xếp theo dạng GRID
 local gridLayout = Instance.new("UIGridLayout")
 gridLayout.CellSize = UDim2.new(0, 118, 0, 34)
 gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
@@ -148,7 +151,6 @@ gridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollContainer.CanvasSize = UDim2.new(0, 0, 0, gridLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- Hàm tạo Nút Bật/Tắt
 local function createCompactToggle(text)
     local button = Instance.new("TextButton")
     button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
@@ -165,7 +167,6 @@ local function createCompactToggle(text)
     return button
 end
 
--- Cập nhật trạng thái màu nút
 local function updateToggleVisual(button, state, labelText)
     if state then
         button.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
@@ -178,7 +179,6 @@ local function updateToggleVisual(button, state, labelText)
     end
 end
 
--- Hàm tạo Ô nhập số (cho Speed / Jump)
 local function createInputModTile(labelText, defaultVal)
     local frame = Instance.new("Frame")
     frame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
@@ -215,7 +215,6 @@ local function createInputModTile(labelText, defaultVal)
     return frame, toggleBtn, textBox
 end
 
--- Hàm tạo Ô nhập số luôn luôn bật (Aim Distance)
 local function createAlwaysOnInputTile(labelText, defaultVal)
     local frame = Instance.new("Frame")
     frame.BackgroundColor3 = Color3.fromRGB(0, 140, 80)
@@ -252,7 +251,6 @@ local function createAlwaysOnInputTile(labelText, defaultVal)
     return frame, textBox
 end
 
--- Tạo các phần tử UI
 local aimToggle = createCompactToggle("Auto Aim")
 local espToggle = createCompactToggle("ESP")
 local teamCheckToggle = createCompactToggle("Team Check")
@@ -268,7 +266,6 @@ local jumpTile, jumpToggle, jumpInput = createInputModTile("Jump", 70)
 
 local teamListBtn = createCompactToggle("Blacklist Team >")
 
--- Add vào Grid Container
 aimToggle.Parent = scrollContainer
 aimDistTile.Parent = scrollContainer
 espToggle.Parent = scrollContainer
@@ -283,7 +280,6 @@ speedTile.Parent = scrollContainer
 jumpTile.Parent = scrollContainer
 teamListBtn.Parent = scrollContainer
 
--- Frame phụ chứa danh sách Team Blacklist
 local teamFrame = Instance.new("ScrollingFrame")
 teamFrame.Size = UDim2.new(0, 140, 0, 220)
 teamFrame.Position = UDim2.new(1, 8, 0, 0)
@@ -306,7 +302,6 @@ teamListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function(
     teamFrame.CanvasSize = UDim2.new(0, 0, 0, teamListLayout.AbsoluteContentSize.Y + 8)
 end)
 
--- Dragging Support
 local function makeDraggable(guiElement, conditionFunc)
     local dragging, dragInput, dragStart, startPos
 
@@ -345,7 +340,6 @@ makeDraggable(refreshButton)
 makeDraggable(xButton)
 makeDraggable(menuFrame)
 
--- Cập nhật danh sách Team
 local function updateTeamListUI()
     for _, child in pairs(teamFrame:GetChildren()) do
         if child:IsA("TextButton") then
@@ -402,7 +396,6 @@ teamListBtn.MouseButton1Click:Connect(function()
     teamFrame.Visible = not teamFrame.Visible
 end)
 
--- Cập nhật trạng thái Aim
 local function setAimState(state)
     aiming = state
     updateToggleVisual(aimToggle, aiming, "Auto Aim")
@@ -414,27 +407,13 @@ local function setAimState(state)
     end
 end
 
--- Gear Toggle
-gearButton.MouseButton1Click:Connect(function()
-    menuFrame.Visible = not menuFrame.Visible
-end)
+gearButton.MouseButton1Click:Connect(function() menuFrame.Visible = not menuFrame.Visible end)
+xButton.MouseButton1Click:Connect(function() setAimState(not aiming) end)
+aimToggle.MouseButton1Click:Connect(function() setAimState(not aiming) end)
 
-xButton.MouseButton1Click:Connect(function()
-    setAimState(not aiming)
-end)
-
-aimToggle.MouseButton1Click:Connect(function()
-    setAimState(not aiming)
-end)
-
--- Aim Distance Event
 aimDistInput.FocusLost:Connect(function()
     local val = tonumber(aimDistInput.Text)
-    if val then
-        maxDistance = val
-    else
-        aimDistInput.Text = tostring(maxDistance)
-    end
+    if val then maxDistance = val else aimDistInput.Text = tostring(maxDistance) end
 end)
 
 espToggle.MouseButton1Click:Connect(function()
@@ -467,7 +446,6 @@ drawLinesToggle.MouseButton1Click:Connect(function()
     updateToggleVisual(drawLinesToggle, drawLines, "Draw Lines")
 end)
 
--- Speed Events
 speedToggle.MouseButton1Click:Connect(function()
     speedEnabled = not speedEnabled
     speedTile.BackgroundColor3 = speedEnabled and Color3.fromRGB(0, 140, 80) or Color3.fromRGB(45, 45, 55)
@@ -479,14 +457,9 @@ end)
 
 speedInput.FocusLost:Connect(function()
     local val = tonumber(speedInput.Text)
-    if val then
-        speedValue = val
-    else
-        speedInput.Text = tostring(speedValue)
-    end
+    if val then speedValue = val else speedInput.Text = tostring(speedValue) end
 end)
 
--- Jump Events
 jumpToggle.MouseButton1Click:Connect(function()
     jumpEnabled = not jumpEnabled
     jumpTile.BackgroundColor3 = jumpEnabled and Color3.fromRGB(0, 140, 80) or Color3.fromRGB(45, 45, 55)
@@ -499,14 +472,9 @@ end)
 
 jumpInput.FocusLost:Connect(function()
     local val = tonumber(jumpInput.Text)
-    if val then
-        jumpValue = val
-    else
-        jumpInput.Text = tostring(jumpValue)
-    end
+    if val then jumpValue = val else jumpInput.Text = tostring(jumpValue) end
 end)
 
--- Noclip Events
 noclipToggle.MouseButton1Click:Connect(function()
     noclipEnabled = not noclipEnabled
     updateToggleVisual(noclipToggle, noclipEnabled, "Noclip")
@@ -522,16 +490,36 @@ local function createESP()
     local box = Instance.new("BoxHandleAdornment")
     box.Size = Vector3.new(4, 6, 2)
     box.Transparency = 0.8
-    box.Color3 = Color3.new(1, 1, 0)
     box.AlwaysOnTop = true
     box.ZIndex = HIGHEST_ZINDEX
     box.Parent = espFolder
     return box
 end
 
--- Tìm Character chuẩn nhất của Player (chống game tạo Custom Character)
-local function getValidCharacter(plr)
-    local char = plr.Character or Workspace:FindFirstChild(plr.Name)
+-- Tối ưu Bot Cache (Lắng nghe sự kiện sinh/mất Object thay vì dùng GetDescendants mỗi frame)
+local function scanBot(obj)
+    if obj:IsA("Model") and obj ~= player.Character and not Players:GetPlayerFromCharacter(obj) then
+        if obj:FindFirstChildOfClass("Humanoid") then
+            botCache[obj] = true
+        end
+    end
+end
+
+for _, obj in ipairs(Workspace:GetDescendants()) do scanBot(obj) end
+Workspace.DescendantAdded:Connect(scanBot)
+Workspace.DescendantRemoving:Connect(function(obj)
+    botCache[obj] = nil
+    botMovementTracker[obj] = nil
+end)
+
+local function getValidCharacter(obj)
+    local char = nil
+    if typeof(obj) == "Instance" and obj:IsA("Player") then
+        char = obj.Character or Workspace:FindFirstChild(obj.Name)
+    elseif typeof(obj) == "Instance" and obj:IsA("Model") then
+        char = obj
+    end
+
     if char and char:IsDescendantOf(Workspace) then
         local hum = char:FindFirstChildOfClass("Humanoid")
         local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("Head")
@@ -542,63 +530,120 @@ local function getValidCharacter(plr)
     return nil, nil, nil
 end
 
-local function updateESP()
-    local activePlayers = {}
+local function getAllEntities()
+    local entities = {}
     
+    -- 1. Quét Players
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then
-            activePlayers[plr] = true
-            local char, hum, root = getValidCharacter(plr)
+            table.insert(entities, plr)
+        end
+    end
 
-            if char and hum and root then
-                if not espBoxes[plr] or not espBoxes[plr].Parent then
-                    espBoxes[plr] = createESP()
-                end
-                
-                local box = espBoxes[plr]
-                box.Adornee = root
-                
-                if teamCheck and player.Team and plr.Team then
-                    box.Color3 = (plr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
-                else
-                    box.Color3 = Color3.new(1, 1, 0)
-                end
+    -- 2. Quét Bot từ Cache tối ưu
+    for botModel, _ in pairs(botCache) do
+        if botModel:IsDescendantOf(Workspace) then
+            table.insert(entities, botModel)
+        else
+            botCache[botModel] = nil
+        end
+    end
+
+    return entities
+end
+
+-- Kiểm tra Bot đứng yên > 10 giây
+local function isBotStationary(botModel, currentRoot)
+    local currentTime = tick()
+    local currentPos = currentRoot.Position
+
+    if not botMovementTracker[botModel] then
+        botMovementTracker[botModel] = {
+            lastPos = currentPos,
+            lastMoveTime = currentTime
+        }
+        return false
+    end
+
+    local tracker = botMovementTracker[botModel]
+    local moveDistance = (currentPos - tracker.lastPos).Magnitude
+
+    if moveDistance > 0.2 then
+        tracker.lastPos = currentPos
+        tracker.lastMoveTime = currentTime
+        return false
+    else
+        if (currentTime - tracker.lastMoveTime) >= 10 then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function updateESP()
+    local activeEntities = {}
+    local entities = getAllEntities()
+
+    for _, entity in ipairs(entities) do
+        activeEntities[entity] = true
+        local char, hum, root = getValidCharacter(entity)
+
+        if char and hum and root then
+            if not espBoxes[entity] or not espBoxes[entity].Parent then
+                espBoxes[entity] = createESP()
+            end
+
+            local box = espBoxes[entity]
+            box.Adornee = root
+
+            local isBot = not (typeof(entity) == "Instance" and entity:IsA("Player"))
+            
+            if isBot then
+                -- Hitbox Bot: Màu cam
+                box.Color3 = Color3.fromRGB(255, 140, 0)
             else
-                if espBoxes[plr] then
-                    espBoxes[plr]:Destroy()
-                    espBoxes[plr] = nil
+                -- Hitbox Người chơi: Giữ màu vàng (hoặc theo team nếu bật Team Check)
+                local targetPlr = entity
+                if teamCheck and player.Team and targetPlr and targetPlr.Team then
+                    box.Color3 = (targetPlr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
+                else
+                    box.Color3 = Color3.new(1, 1, 0) -- Mặc định Vàng cho Player
                 end
+            end
+        else
+            if espBoxes[entity] then
+                espBoxes[entity]:Destroy()
+                espBoxes[entity] = nil
             end
         end
     end
 
-    -- Dọn dẹp ESP của những người chơi đã thoát Match/Game
-    for plr, box in pairs(espBoxes) do
-        if not activePlayers[plr] then
+    for entity, box in pairs(espBoxes) do
+        if not activeEntities[entity] then
             box:Destroy()
-            espBoxes[plr] = nil
+            espBoxes[entity] = nil
+            botMovementTracker[entity] = nil
         end
     end
 end
 
--- Lines Drawing
+-- Lines Drawing (Dây nối màu Đỏ)
 local lineDrawer = Drawing.new("Line")
-lineDrawer.Color = Color3.new(1, 0, 0)
+lineDrawer.Color = Color3.fromRGB(255, 0, 0) -- Dây nối màu ĐỎ
 lineDrawer.Thickness = 2
 lineDrawer.Transparency = 1
 lineDrawer.Visible = false
 
--- Dynamic Target Part Finder
 local function getAimTargetPart(char)
     if not char then return nil end
     if aimPart == "Head" then
-        return char:FindFirstChild("Head")
+        return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
     else
         return char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart")
     end
 end
 
--- Wall Check Fix
 local function canSeeTarget(part)
     if not wallCheck then return true end
     local origin = camera.CFrame.Position
@@ -616,23 +661,23 @@ local function canSeeTarget(part)
     return raycastResult == nil
 end
 
--- Team Check
-local function isTeammate(target)
+local function isTeammate(targetObj)
     if not teamCheck then return false end
-    if player.Team and target.Team and player.Team == target.Team then
+    local targetPlr = typeof(targetObj) == "Instance" and targetObj:IsA("Player") and targetObj or Players:GetPlayerFromCharacter(targetObj)
+    if player.Team and targetPlr and targetPlr.Team and player.Team == targetPlr.Team then
         return true
     end
     return false
 end
 
-local function isBlacklistedTeam(target)
-    if target and target.Team and blacklistedTeams[target.Team.Name] then
+local function isBlacklistedTeam(targetObj)
+    local targetPlr = typeof(targetObj) == "Instance" and targetObj:IsA("Player") and targetObj or Players:GetPlayerFromCharacter(targetObj)
+    if targetPlr and targetPlr.Team and blacklistedTeams[targetPlr.Team.Name] then
         return true
     end
     return false
 end
 
--- Lấy mục tiêu trong bán kính maxDistance stud
 local function getTarget()
     local _, _, myRoot = getValidCharacter(player)
     if not myRoot then return nil end
@@ -642,35 +687,42 @@ local function getTarget()
     local shortestDist = math.huge
     local center2d = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 
-    for _, target in pairs(Players:GetPlayers()) do
-        if target ~= player then
-            if blacklistedTargets[target] then continue end
-            if isBlacklistedTeam(target) then continue end
+    local entities = getAllEntities()
 
-            local char, hum, _ = getValidCharacter(target)
-            if char and hum then
-                local part = getAimTargetPart(char)
-                if part then
-                    local worldDist = (part.Position - myPos).Magnitude
-                    if worldDist > maxDistance then continue end
+    for _, target in pairs(entities) do
+        if blacklistedTargets[target] then continue end
+        if isBlacklistedTeam(target) then continue end
 
-                    if isTeammate(target) then continue end
-                    if not canSeeTarget(part) then continue end
+        local char, hum, root = getValidCharacter(target)
+        if char and hum and root then
+            local isBot = not (typeof(target) == "Instance" and target:IsA("Player"))
+            
+            -- Bỏ qua Bot đứng yên quá 10 giây
+            if isBot and isBotStationary(target, root) then
+                continue
+            end
 
-                    if lockToCenter then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-                        if not onScreen then continue end
+            local part = getAimTargetPart(char)
+            if part then
+                local worldDist = (part.Position - myPos).Magnitude
+                if worldDist > maxDistance then continue end
 
-                        local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center2d).Magnitude
-                        if distFromCenter < shortestDist then
-                            shortestDist = distFromCenter
-                            closest = part
-                        end
-                    else
-                        if worldDist < shortestDist then
-                            shortestDist = worldDist
-                            closest = part
-                        end
+                if isTeammate(target) then continue end
+                if not canSeeTarget(part) then continue end
+
+                if lockToCenter then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                    if not onScreen then continue end
+
+                    local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - center2d).Magnitude
+                    if distFromCenter < shortestDist then
+                        shortestDist = distFromCenter
+                        closest = part
+                    end
+                else
+                    if worldDist < shortestDist then
+                        shortestDist = worldDist
+                        closest = part
                     end
                 end
             end
@@ -684,7 +736,6 @@ local function getTarget()
     return closest
 end
 
--- Nhấn nút Refresh để chuyển đổi mục tiêu & Hiệu ứng xoay
 local refreshTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 refreshButton.MouseButton1Click:Connect(function()
@@ -694,15 +745,14 @@ refreshButton.MouseButton1Click:Connect(function()
     tween:Play()
 
     if currentTargetPart and currentTargetPart.Parent then
-        local targetPlayer = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
-        if targetPlayer then
-            blacklistedTargets[targetPlayer] = true
+        local targetEntity = Players:GetPlayerFromCharacter(currentTargetPart.Parent) or currentTargetPart.Parent
+        if targetEntity then
+            blacklistedTargets[targetEntity] = true
         end
     end
     currentTargetPart = getTarget()
 end)
 
--- Khóa góc nhìn camera vào mục tiêu
 local function aimAt(targetPart)
     if targetPart then
         local camPos = camera.CFrame.Position
@@ -719,20 +769,14 @@ end
 
 applyMaxZIndex(screenGui)
 
--- Main Loop - Realtime Dynamic Scan
+-- Main Loop
 RunService:UnbindFromRenderStep("AimbotCameraUpdate")
 RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function()
-    -- 1. Xử lý Speed, Jump, Noclip
+    -- 1. Movement Mods
     local char, hum, _ = getValidCharacter(player)
     if char and hum then
-        if speedEnabled then
-            hum.WalkSpeed = speedValue
-        end
-        if jumpEnabled then
-            hum.UseJumpPower = true
-            hum.JumpPower = jumpValue
-        end
-
+        if speedEnabled then hum.WalkSpeed = speedValue end
+        if jumpEnabled then hum.UseJumpPower = true hum.JumpPower = jumpValue end
         if noclipEnabled then
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") and part.CanCollide then
@@ -742,35 +786,38 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
         end
     end
 
-    -- 2. Xử lý ESP
+    -- 2. ESP
     if espEnabled then
         updateESP()
     else
-        for plr, box in pairs(espBoxes) do
+        for entity, box in pairs(espBoxes) do
             box:Destroy()
-            espBoxes[plr] = nil
+            espBoxes[entity] = nil
         end
     end
 
-    -- 3. Xử lý Aimbot
+    -- 3. Aimbot
     if aiming then
         local isValidTarget = false
         
-        -- Kiếm tra mục tiêu hiện tại còn hợp lệ/sống hay không
         if currentTargetPart and currentTargetPart:IsDescendantOf(Workspace) and currentTargetPart.Parent then
             local hum = currentTargetPart.Parent:FindFirstChildOfClass("Humanoid")
-            local targetPlr = Players:GetPlayerFromCharacter(currentTargetPart.Parent)
+            local targetEntity = Players:GetPlayerFromCharacter(currentTargetPart.Parent) or currentTargetPart.Parent
             local _, _, myRoot = getValidCharacter(player)
 
             if hum and hum.Health > 0 and myRoot then
+                local isBot = not (typeof(targetEntity) == "Instance" and targetEntity:IsA("Player"))
+                local rootPart = currentTargetPart.Parent:FindFirstChild("HumanoidRootPart") or currentTargetPart
+
+                local botAFK = isBot and rootPart and isBotStationary(targetEntity, rootPart)
                 local worldDist = (currentTargetPart.Position - myRoot.Position).Magnitude
-                if worldDist <= maxDistance and canSeeTarget(currentTargetPart) and not isBlacklistedTeam(targetPlr) then
+
+                if worldDist <= maxDistance and canSeeTarget(currentTargetPart) and not isBlacklistedTeam(targetEntity) and not botAFK then
                     isValidTarget = true
                 end
             end
         end
 
-        -- Nếu mục tiêu chết/hồi sinh/ra khỏi phạm vi -> Tự động tìm target mới ngay lập tức
         if not isValidTarget then
             currentTargetPart = getTarget()
         end
@@ -782,7 +829,7 @@ RunService:BindToRenderStep("AimbotCameraUpdate", Enum.RenderPriority.Camera.Val
         currentTargetPart = nil
     end
 
-    -- 4. Draw lines
+    -- 4. Draw Lines (Đường dây màu Đỏ)
     if drawLines and aiming and currentTargetPart then
         local screenPos, onScreen = camera:WorldToViewportPoint(currentTargetPart.Position)
         if onScreen then
