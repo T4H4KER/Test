@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Web Thử Nghiệm Form Inputs</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="text-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Trang Web Thử Nghiệm Form Inputs</h1>
+            <p class="text-slate-500 mt-2 text-sm sm:text-base">Tương tác với các phần tử form dưới đây để xem dữ liệu cập nhật theo thời gian thực.</p>
+        </header>
+
+        <!-- Main Form & Preview Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Form Section -->
+            <form id="testForm" class="lg:col-span-7 bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                
+                <!-- Text Input -->
+                <div>
+                    <label for="fullName" class="block text-sm font-semibold text-slate-700 mb-1">Họ và tên</label>
+                    <input type="text" id="fullName" name="fullName" placeholder="Nhập họ và tên..." 
+                           class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                </div>
+
+                <!-- Email Input -->
+                <div>
+                    <label for="email" class="block text-sm font-semibold text-slate-700 mb-1">Địa chỉ Email</label>
+                    <input type="email" id="email" name="email" placeholder="nhập email..." 
+                           class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                </div>
+
+                <!-- Password Input -->
+                <div>
+                    <label for="password" class="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" 
+                           class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                </div>
+
+                <!-- Grid for Number & Date -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Number Input -->
+                    <div>
+                        <label for="age" class="block text-sm font-semibold text-slate-700 mb-1">Tuổi</label>
+                        <input type="number" id="age" name="age" min="1" max="120" placeholder="18" 
+                               class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                    </div>
+
+                    <!-- Date Input -->
+                    <div>
+                        <label for="birthdate" class="block text-sm font-semibold text-slate-700 mb-1">Ngày sinh</label>
+                        <input type="date" id="birthdate" name="birthdate" 
+                               class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                    </div>
+                </div>
+
+                <!-- Color Input -->
+                <div>
+                    <label for="favoriteColor" class="block text-sm font-semibold text-slate-700 mb-1">Chọn màu yêu thích</label>
+                    <div class="flex items-center gap-3">
+                        <input type="color" id="favoriteColor" name="favoriteColor" value="#6366f1" 
+                               class="h-10 w-20 cursor-pointer rounded-lg border border-slate-300 p-1">
+                        <span id="colorHex" class="text-sm font-mono bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">#6366f1</span>
+                    </div>
+                </div>
+
+                <!-- Radio Buttons: Giới tính -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Giới tính</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gender" value="Nam" class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Nam</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gender" value="Nữ" class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Nữ</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gender" value="Khác" class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Khác</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Checkbox Group: Sở thích -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Sở thích</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="hobbies" value="Đọc sách" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Đọc sách</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="hobbies" value="Xem phim" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Xem phim</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="hobbies" value="Chơi thể thao" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Chơi thể thao</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="hobbies" value="Du lịch" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                            <span class="text-sm text-slate-700">Du lịch</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Single Checkbox: Điều khoản -->
+                <div class="pt-2 border-t border-slate-100">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="agreeTerms" name="agreeTerms" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                        <span class="text-sm font-medium text-slate-700">Tôi đồng ý với điều khoản dịch vụ</span>
+                    </label>
+                </div>
+
+                <!-- Select / Dropdown -->
+                <div>
+                    <label for="city" class="block text-sm font-semibold text-slate-700 mb-1">Chọn thành phố</label>
+                    <select id="city" name="city" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white">
+                        <option value="">-- Chọn thành phố --</option>
+                        <option value="Hà Nội">Hà Nội</option>
+                        <option value="TP.HCM">TP. Hồ Chí Minh</option>
+                        <option value="Đà Nẵng">Đà Nẵng</option>
+                        <option value="Cần Thơ">Cần Thơ</option>
+                        <option value="Hải Phòng">Hải Phòng</option>
+                    </select>
+                </div>
+
+                <!-- Range / Slider -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="satisfaction" class="block text-sm font-semibold text-slate-700">Mức độ hài lòng (1-100)</label>
+                        <span id="rangeValue" class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">50</span>
+                    </div>
+                    <input type="range" id="satisfaction" name="satisfaction" min="1" max="100" value="50" 
+                           class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+
+                <!-- Textarea -->
+                <div>
+                    <label for="notes" class="block text-sm font-semibold text-slate-700 mb-1">Ghi chú thêm</label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="Nhập ghi chú của bạn tại đây..." 
+                              class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"></textarea>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" id="resetBtn" 
+                            class="w-full sm:w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition duration-200 text-sm">
+                        Xóa tất cả / Reset
+                    </button>
+                    <button type="submit" 
+                            class="w-full sm:w-1/2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md hover:shadow-indigo-200 transition duration-200 text-sm">
+                        Gửi dữ liệu thử nghiệm
+                    </button>
+                </div>
+
+            </form>
+
+            <!-- Live Preview Panel -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="bg-slate-900 text-slate-100 p-6 rounded-2xl shadow-sm border border-slate-800 sticky top-6">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live Preview (JSON)
+                        </h2>
+                        <button id="copyJsonBtn" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+                            Copy JSON
+                        </button>
+                    </div>
+
+                    <pre id="jsonPreview" class="bg-slate-950 p-4 rounded-xl text-xs sm:text-sm font-mono text-emerald-400 overflow-x-auto max-h-[500px] leading-relaxed border border-slate-800/80">
+{}
+                    </pre>
+
+                    <!-- Alert message box -->
+                    <div id="statusMessage" class="hidden mt-4 p-3 rounded-xl text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-800">
+                        Dữ liệu đã được gửi thành công!
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const form = document.getElementById('testForm');
+        const jsonPreview = document.getElementById('jsonPreview');
+        const colorHex = document.getElementById('colorHex');
+        const rangeValue = document.getElementById('rangeValue');
+        const resetBtn = document.getElementById('resetBtn');
+        const copyJsonBtn = document.getElementById('copyJsonBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // Function to extract form data and return as clean object
+        function getFormData() {
+            const formData = new FormData(form);
+            const data = {
+                fullName: formData.get('fullName') || '',
+                email: formData.get('email') || '',
+                password: formData.get('password') || '',
+                age: formData.get('age') ? Number(formData.get('age')) : null,
+                birthdate: formData.get('birthdate') || '',
+                favoriteColor: formData.get('favoriteColor') || '#6366f1',
+                gender: formData.get('gender') || 'Chưa chọn',
+                hobbies: formData.getAll('hobbies'),
+                agreeTerms: document.getElementById('agreeTerms').checked,
+                city: formData.get('city') || 'Chưa chọn',
+                satisfaction: Number(formData.get('satisfaction')),
+                notes: formData.get('notes') || ''
+            };
+            return data;
+        }
+
+        // Function to update the Live Preview panel
+        function updatePreview() {
+            const data = getFormData();
+            
+            // Update color code display
+            if (colorHex) colorHex.textContent = data.favoriteColor;
+            
+            // Update range value display
+            if (rangeValue) rangeValue.textContent = data.satisfaction;
+
+            // Render JSON to preview block
+            jsonPreview.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Add real-time event listeners to form input fields
+        form.addEventListener('input', updatePreview);
+        form.addEventListener('change', updatePreview);
+
+        // Handle form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            updatePreview();
+            
+            // Show status notification
+            statusMessage.classList.remove('hidden');
+            statusMessage.textContent = '✅ Đã gửi dữ liệu thử nghiệm! (Xem JSON ở khung xem trước)';
+            
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 3000);
+        });
+
+        // Handle form reset
+        resetBtn.addEventListener('click', () => {
+            form.reset();
+            setTimeout(updatePreview, 10); // Small timeout to ensure inputs reset first
+        });
+
+        // Handle Copy JSON button
+        copyJsonBtn.addEventListener('click', () => {
+            const jsonText = jsonPreview.textContent;
+            
+            // Fallback for copying text
+            const tempInput = document.createElement('textarea');
+            tempInput.value = jsonText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            // Change button feedback text briefly
+            const originalText = copyJsonBtn.textContent;
+            copyJsonBtn.textContent = 'Đã chép!';
+            copyJsonBtn.classList.add('bg-emerald-800', 'text-white');
+            
+            setTimeout(() => {
+                copyJsonBtn.textContent = originalText;
+                copyJsonBtn.classList.remove('bg-emerald-800', 'text-white');
+            }, 1500);
+        });
+
+        // Initialize preview on page load
+        window.onload = function() {
+            updatePreview();
+        };
+    </script>
+</body>
+</html>
