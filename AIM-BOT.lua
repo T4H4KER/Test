@@ -354,6 +354,9 @@ makeDraggable(refreshButton)
 makeDraggable(xButton)
 makeDraggable(menuFrame)
 
+--------------------------------------------------------------------------------
+-- CẬP NHẬT BLACKLIST UI (CÓ ROLE "BOT" MẶC ĐỊNH)
+--------------------------------------------------------------------------------
 local function updateTeamListUI()
     for _, child in pairs(teamFrame:GetChildren()) do
         if child:IsA("TextButton") then
@@ -361,44 +364,61 @@ local function updateTeamListUI()
         end
     end
 
+    -- 1. Tạo Nút Role Mặc Định "BOT"
+    local botBtn = Instance.new("TextButton")
+    botBtn.Size = UDim2.new(1, -10, 0, 26)
+    botBtn.Font = Enum.Font.GothamBold
+    botBtn.TextSize = 11
+    botBtn.AutoButtonColor = true
+
+    local isBotBlacklisted = blacklistedTeams["BOT"] == true
+    botBtn.BackgroundColor3 = isBotBlacklisted and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
+    botBtn.TextColor3 = isBotBlacklisted and Color3.new(1, 1, 1) or Color3.fromRGB(255, 140, 0)
+    botBtn.Text = "BOT " .. (isBotBlacklisted and "[CẤM]" or "")
+    botBtn.Parent = teamFrame
+
+    local botBtnCorner = Instance.new("UICorner")
+    botBtnCorner.CornerRadius = UDim.new(0, 4)
+    botBtnCorner.Parent = botBtn
+
+    botBtn.MouseButton1Click:Connect(function()
+        blacklistedTeams["BOT"] = not blacklistedTeams["BOT"]
+        local active = blacklistedTeams["BOT"]
+        botBtn.BackgroundColor3 = active and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
+        botBtn.TextColor3 = active and Color3.new(1, 1, 1) or Color3.fromRGB(255, 140, 0)
+        botBtn.Text = "BOT " .. (active and "[CẤM]" or "")
+        currentTargetPart = nil
+    end)
+
+    -- 2. Thêm Các Team Thực Tế Trong Game
     local allTeams = Teams:GetTeams()
-    if #allTeams == 0 then
-        local noTeamLabel = Instance.new("TextLabel")
-        noTeamLabel.Size = UDim2.new(1, -10, 0, 28)
-        noTeamLabel.BackgroundTransparency = 1
-        noTeamLabel.Text = "Không có Team"
-        noTeamLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-        noTeamLabel.Font = Enum.Font.Gotham
-        noTeamLabel.TextSize = 11
-        noTeamLabel.Parent = teamFrame
-    else
-        for _, team in pairs(allTeams) do
-            local tBtn = Instance.new("TextButton")
-            tBtn.Size = UDim2.new(1, -10, 0, 26)
-            tBtn.Font = Enum.Font.GothamMedium
-            tBtn.TextSize = 11
-            tBtn.AutoButtonColor = true
+    for _, team in pairs(allTeams) do
+        local tBtn = Instance.new("TextButton")
+        tBtn.Size = UDim2.new(1, -10, 0, 26)
+        tBtn.Font = Enum.Font.GothamMedium
+        tBtn.TextSize = 11
+        tBtn.AutoButtonColor = true
 
-            local isBlacklisted = blacklistedTeams[team.Name] == true
-            tBtn.BackgroundColor3 = isBlacklisted and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
-            tBtn.TextColor3 = isBlacklisted and Color3.new(1, 1, 1) or team.TeamColor.Color
-            tBtn.Text = team.Name .. (isBlacklisted and " [CẤM]" or "")
-            tBtn.Parent = teamFrame
+        local isBlacklisted = blacklistedTeams[team.Name] == true
+        tBtn.BackgroundColor3 = isBlacklisted and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
+        tBtn.TextColor3 = isBlacklisted and Color3.new(1, 1, 1) or team.TeamColor.Color
+        tBtn.Text = team.Name .. (isBlacklisted and " [CẤM]" or "")
+        tBtn.Parent = teamFrame
 
-            local btnC = Instance.new("UICorner")
-            btnC.CornerRadius = UDim.new(0, 4)
-            btnC.Parent = tBtn
+        local btnC = Instance.new("UICorner")
+        btnC.CornerRadius = UDim.new(0, 4)
+        btnC.Parent = tBtn
 
-            tBtn.MouseButton1Click:Connect(function()
-                blacklistedTeams[team.Name] = not blacklistedTeams[team.Name]
-                local active = blacklistedTeams[team.Name]
-                tBtn.BackgroundColor3 = active and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
-                tBtn.TextColor3 = active and Color3.new(1, 1, 1) or team.TeamColor.Color
-                tBtn.Text = team.Name .. (active and " [CẤM]" or "")
-                currentTargetPart = nil
-            end)
-        end
+        tBtn.MouseButton1Click:Connect(function()
+            blacklistedTeams[team.Name] = not blacklistedTeams[team.Name]
+            local active = blacklistedTeams[team.Name]
+            tBtn.BackgroundColor3 = active and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 50)
+            tBtn.TextColor3 = active and Color3.new(1, 1, 1) or team.TeamColor.Color
+            tBtn.Text = team.Name .. (active and " [CẤM]" or "")
+            currentTargetPart = nil
+        end)
     end
+    
     applyMaxZIndex(teamFrame)
 end
 
@@ -678,11 +698,23 @@ local function isTeammate(targetObj)
     return false
 end
 
+--------------------------------------------------------------------------------
+-- CHECK BLACKLIST TEAM & ROLE "BOT"
+--------------------------------------------------------------------------------
 local function isBlacklistedTeam(targetObj)
+    local isBot = not (typeof(targetObj) == "Instance" and targetObj:IsA("Player"))
+    
+    -- Nếu là Bot và role "BOT" đang bật CẤM
+    if isBot and blacklistedTeams["BOT"] then
+        return true
+    end
+
+    -- Kiểm tra Team bình thường nếu là Player
     local targetPlr = typeof(targetObj) == "Instance" and targetObj:IsA("Player") and targetObj or Players:GetPlayerFromCharacter(targetObj)
     if targetPlr and targetPlr.Team and blacklistedTeams[targetPlr.Team.Name] then
         return true
     end
+
     return false
 end
 
