@@ -5,6 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Teams = game:GetService("Teams")
 local TweenService = game:GetService("TweenService")
+local PathfindingService = game:GetService("PathfindingService")
 
 --// Constants for Max Overlay
 local HIGHEST_ZINDEX = 2147483647
@@ -30,12 +31,13 @@ local blacklistedTeams = {}
 local botCache = {}
 local botMovementTracker = {} 
 
---// Variables (Movement Mods)
+--// Variables (Movement Mods & Teleport)
 local speedValue = 32
 local jumpValue = 70
 local speedEnabled = false
 local jumpEnabled = false
 local noclipEnabled = false
+local tpLerkEnabled = false
 
 -- Helper Function: Đảm bảo tất cả UI element luôn ở ZIndex cao nhất
 local function applyMaxZIndex(guiObject)
@@ -54,7 +56,16 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.DisplayOrder = HIGHEST_DISPLAY_ORDER
 screenGui.Enabled = true
-screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Hỗ trợ Executor (gethui/protect_gui)
+if gethui then
+    screenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(screenGui)
+    screenGui.Parent = game:GetService("CoreGui")
+else
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+end
 
 screenGui.DescendantAdded:Connect(function(descendant)
     if descendant:IsA("GuiObject") then
@@ -105,8 +116,8 @@ xCorner.Parent = xButton
 -- MENU FRAME (GIAO DIỆN)
 --------------------------------------------------------------------------------
 local menuFrame = Instance.new("Frame")
-menuFrame.Size = UDim2.new(0, 260, 0, 320)
-menuFrame.Position = UDim2.new(0.5, -130, 0.5, -160)
+menuFrame.Size = UDim2.new(0, 260, 0, 340)
+menuFrame.Position = UDim2.new(0.5, -130, 0.5, -170)
 menuFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 menuFrame.BorderSizePixel = 0
 menuFrame.Visible = false
@@ -251,6 +262,7 @@ local function createAlwaysOnInputTile(labelText, defaultVal)
     return frame, textBox
 end
 
+-- Tải các nút lên Menu Grid
 local aimToggle = createCompactToggle("Auto Aim")
 local espToggle = createCompactToggle("ESP")
 local teamCheckToggle = createCompactToggle("Team Check")
@@ -259,6 +271,7 @@ local aimPartToggle = createCompactToggle("Aim: Head")
 local lockCenterToggle = createCompactToggle("Lock Center")
 local drawLinesToggle = createCompactToggle("Draw Lines")
 local noclipToggle = createCompactToggle("Noclip")
+local tpLerkToggle = createCompactToggle("TP Lerk")
 
 local aimDistTile, aimDistInput = createAlwaysOnInputTile("Aim Dist", 200)
 local speedTile, speedToggle, speedInput = createInputModTile("Speed", 32)
@@ -275,6 +288,7 @@ aimPartToggle.Parent = scrollContainer
 lockCenterToggle.Parent = scrollContainer
 drawLinesToggle.Parent = scrollContainer
 noclipToggle.Parent = scrollContainer
+tpLerkToggle.Parent = scrollContainer
 
 speedTile.Parent = scrollContainer
 jumpTile.Parent = scrollContainer
@@ -496,7 +510,6 @@ local function createESP()
     return box
 end
 
--- Tối ưu Bot Cache (Lắng nghe sự kiện sinh/mất Object thay vì dùng GetDescendants mỗi frame)
 local function scanBot(obj)
     if obj:IsA("Model") and obj ~= player.Character and not Players:GetPlayerFromCharacter(obj) then
         if obj:FindFirstChildOfClass("Humanoid") then
@@ -533,14 +546,12 @@ end
 local function getAllEntities()
     local entities = {}
     
-    -- 1. Quét Players
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then
             table.insert(entities, plr)
         end
     end
 
-    -- 2. Quét Bot từ Cache tối ưu
     for botModel, _ in pairs(botCache) do
         if botModel:IsDescendantOf(Workspace) then
             table.insert(entities, botModel)
@@ -552,7 +563,6 @@ local function getAllEntities()
     return entities
 end
 
--- Kiểm tra Bot đứng yên > 10 giây
 local function isBotStationary(botModel, currentRoot)
     local currentTime = tick()
     local currentPos = currentRoot.Position
@@ -600,15 +610,13 @@ local function updateESP()
             local isBot = not (typeof(entity) == "Instance" and entity:IsA("Player"))
             
             if isBot then
-                -- Hitbox Bot: Màu cam
                 box.Color3 = Color3.fromRGB(255, 140, 0)
             else
-                -- Hitbox Người chơi: Giữ màu vàng (hoặc theo team nếu bật Team Check)
                 local targetPlr = entity
                 if teamCheck and player.Team and targetPlr and targetPlr.Team then
                     box.Color3 = (targetPlr.Team == player.Team) and Color3.new(0, 0, 1) or Color3.new(1, 0, 0)
                 else
-                    box.Color3 = Color3.new(1, 1, 0) -- Mặc định Vàng cho Player
+                    box.Color3 = Color3.new(1, 1, 0)
                 end
             end
         else
@@ -630,7 +638,7 @@ end
 
 -- Lines Drawing (Dây nối màu Đỏ)
 local lineDrawer = Drawing.new("Line")
-lineDrawer.Color = Color3.fromRGB(255, 0, 0) -- Dây nối màu ĐỎ
+lineDrawer.Color = Color3.fromRGB(255, 0, 0)
 lineDrawer.Thickness = 2
 lineDrawer.Transparency = 1
 lineDrawer.Visible = false
@@ -697,7 +705,6 @@ local function getTarget()
         if char and hum and root then
             local isBot = not (typeof(target) == "Instance" and target:IsA("Player"))
             
-            -- Bỏ qua Bot đứng yên quá 10 giây
             if isBot and isBotStationary(target, root) then
                 continue
             end
@@ -736,6 +743,111 @@ local function getTarget()
     return closest
 end
 
+--------------------------------------------------------------------------------
+-- CƠ CHẾ TP LERK VÒNG TƯỜNG (PATHFINDING NÉ VẬT CẢN)
+--------------------------------------------------------------------------------
+local function startTPLerkLoop()
+    local SPEED = 50          -- Tốc độ: 50 studs/s
+    local SEGMENT_LIMIT = 200 -- Di chuyển tối đa 200 studs mỗi chặng nghỉ
+    local PAUSE_TIME = 0.5    -- Nghỉ 500ms
+
+    task.spawn(function()
+        while tpLerkEnabled do
+            pcall(function()
+                local targetPart = getTarget()
+                if not targetPart or not targetPart.Parent then
+                    task.wait(0.2)
+                    return
+                end
+
+                local myChar, _, myRoot = getValidCharacter(player)
+                if not myChar or not myRoot then
+                    task.wait(0.2)
+                    return
+                end
+
+                -- Tạo đường đi né tường
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    WaypointSpacing = 4
+                })
+
+                local success, _ = pcall(function()
+                    path:ComputeAsync(myRoot.Position, targetPart.Position)
+                end)
+
+                if not success or path.Status ~= Enum.PathStatus.Success then
+                    task.wait(0.2)
+                    return
+                end
+
+                local waypoints = path:GetWaypoints()
+                local totalMovedDistance = 0
+
+                -- Di chuyển theo lộ trình né tường
+                for idx = 2, #waypoints do
+                    if not tpLerkEnabled then break end
+
+                    local waypoint = waypoints[idx]
+                    local wpPos = waypoint.Position
+
+                    -- Nhảy nếu waypoint yêu cầu
+                    if waypoint.Action == Enum.PathWaypointAction.Jump then
+                        local hum = myChar:FindFirstChildOfClass("Humanoid")
+                        if hum then hum.Jump = true end
+                    end
+
+                    local startPos = myRoot.Position
+                    local distanceToWP = (wpPos - startPos).Magnitude
+
+                    if distanceToWP > 0.1 then
+                        local direction = (wpPos - startPos).Unit
+                        local distanceTraveled = 0
+
+                        while distanceTraveled < distanceToWP and tpLerkEnabled do
+                            local dt = RunService.Heartbeat:Wait()
+                            if not myRoot or not myRoot.Parent then break end
+
+                            local step = SPEED * dt
+                            distanceTraveled = math.min(distanceTraveled + step, distanceToWP)
+
+                            myRoot.AssemblyLinearVelocity = Vector3.zero
+                            myRoot.CFrame = CFrame.new(startPos + (direction * distanceTraveled))
+
+                            totalMovedDistance = totalMovedDistance + step
+
+                            -- Dừng lại nghỉ 500ms nếu tổng quãng đường đi qua các waypoint đạt 200 studs
+                            if totalMovedDistance >= SEGMENT_LIMIT then
+                                totalMovedDistance = 0
+                                task.wait(PAUSE_TIME)
+                            end
+                        end
+                    end
+                end
+
+                -- Sau khi đi hết lộ trình, nghỉ ngắn rồi cập nhật đường đi mới theo mục tiêu
+                if tpLerkEnabled then
+                    task.wait(PAUSE_TIME)
+                end
+            end)
+            task.wait()
+        end
+    end)
+end
+
+tpLerkToggle.MouseButton1Click:Connect(function()
+    tpLerkEnabled = not tpLerkEnabled
+    updateToggleVisual(tpLerkToggle, tpLerkEnabled, "TP Lerk")
+    if tpLerkEnabled then
+        startTPLerkLoop()
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- REFRESH & AIM LOGIC
+--------------------------------------------------------------------------------
 local refreshTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 refreshButton.MouseButton1Click:Connect(function()
