@@ -1,7 +1,7 @@
 --[[
     ToanCreator GUI - Dynamic Resizing, Auto Config & Distance Slider Upgrade
     Mobile & PC Optimized
-    [UPDATED]: Softened Fullbright & Dynamic Sync Color for Hitbox / Trace Lines
+    [UPDATED]: Auto Exit Spectate & Hide Navigation Bar on Successful Teleport
 ]]
 
 local Players = game:GetService("Players")
@@ -9,7 +9,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 
 -- PREVENT MULTIPLE EXECUTIONS
@@ -96,6 +95,13 @@ local DefaultSettings = {
 
 local Settings = {}
 for k, v in pairs(DefaultSettings) do Settings[k] = v end
+
+local DynamicStats = {
+    Speed = { Enabled = false, Value = 16 },
+    Jump = { Enabled = false, Value = 50 },
+    Health = { Enabled = false, Value = 100 },
+    MaxHealth = { Enabled = false, Value = 100 }
+}
 
 local Locations = {}
 local SavedConfigs = {}
@@ -202,12 +208,10 @@ end
 
 LoadSavedConfigsFromFile()
 
--- Freecam State
 local FreecamPos = Vector3.zero
 local freecamYaw = 0
 local freecamPitch = 0
 
--- Tracking
 local PlayerStats = {}
 local TraceLines = {}
 
@@ -230,14 +234,14 @@ local function AddStroke(parent, col, th)
 end
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "ToanCreatorGUI_v9",
+    Name = "ToanCreatorGUI_v14",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
+    DisplayOrder = 999999,
     Parent = PlayerGui,
 })
 
--- FPS DISPLAY LABEL (TOP RIGHT CORNER)
 local FPSLabel = Create("TextLabel", {
     Size = UDim2.new(0, 70, 0, 18),
     Position = UDim2.new(1, -75, 0, 5),
@@ -248,7 +252,7 @@ local FPSLabel = Create("TextLabel", {
     Font = Enum.Font.GothamBold,
     TextXAlignment = Enum.TextXAlignment.Right,
     Visible = false,
-    ZIndex = 999,
+    ZIndex = 999999,
     Parent = ScreenGui
 })
 
@@ -257,12 +261,12 @@ local Main = Create("Frame", {
     Position = UDim2.new(0.5, -135, 0.5, -190),
     BackgroundColor3 = COLORS.Background,
     BorderSizePixel = 0,
+    ZIndex = 999900,
     Parent = ScreenGui,
 })
 AddCorner(Main, 10)
 local MainStroke = AddStroke(Main, Color3.fromRGB(60, 60, 75), 1.5)
 
--- WATERFLOW BORDER EFFECT FOR RESIZING
 local MainGradient = Create("UIGradient", {
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
@@ -293,7 +297,6 @@ local function SetWaterflowBorder(enable)
     end
 end
 
--- RESIZING SYSTEM FROM 4 CORNERS
 local MIN_WIDTH = 240
 local MIN_HEIGHT = 300
 
@@ -363,10 +366,10 @@ local function SetupCornerResize(handle, cornerType)
 end
 
 local Corners = {
-    TL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
-    TR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 0, 0), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
-    BL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 1, -16), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
-    BR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 1, -16), BackgroundTransparency = 1, ZIndex = 10, Parent = Main }),
+    TL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 999905, Parent = Main }),
+    TR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 0, 0), BackgroundTransparency = 1, ZIndex = 999905, Parent = Main }),
+    BL = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(0, 0, 1, -16), BackgroundTransparency = 1, ZIndex = 999905, Parent = Main }),
+    BR = Create("Frame", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -16, 1, -16), BackgroundTransparency = 1, ZIndex = 999905, Parent = Main }),
 }
 
 for cornerType, handle in pairs(Corners) do
@@ -403,26 +406,26 @@ end
 MakeDraggable(Main, Main)
 
 -- HEADER
-local Header = Create("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = COLORS.Panel, Parent = Main })
+local Header = Create("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = COLORS.Panel, ZIndex = 999901, Parent = Main })
 AddCorner(Header, 10)
 
 Create("TextLabel", {
     Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 10, 0, 0),
     BackgroundTransparency = 1, Text = "ToanCreator", TextColor3 = COLORS.Text,
-    TextSize = 14, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = Header
+    TextSize = 14, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999902, Parent = Header
 })
 
-local MinimizeButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -56, 0, 6), BackgroundColor3 = COLORS.Button, Text = "—", TextColor3 = COLORS.Text, Font = Enum.Font.GothamBold, Parent = Header })
+local MinimizeButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -56, 0, 6), BackgroundColor3 = COLORS.Button, Text = "—", TextColor3 = COLORS.Text, Font = Enum.Font.GothamBold, ZIndex = 999902, Parent = Header })
 AddCorner(MinimizeButton, 5)
 
-local CloseButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -28, 0, 6), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 15, Font = Enum.Font.GothamBold, Parent = Header })
+local CloseButton = Create("TextButton", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(1, -28, 0, 6), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 15, Font = Enum.Font.GothamBold, ZIndex = 999902, Parent = Header })
 AddCorner(CloseButton, 5)
 
 -- TAB SYSTEM
-local TabBar = Create("Frame", { Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 0, 40), BackgroundTransparency = 1, Parent = Main })
+local TabBar = Create("Frame", { Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 0, 40), BackgroundTransparency = 1, ZIndex = 999901, Parent = Main })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = TabBar })
 
-local Content = Create("Frame", { Size = UDim2.new(1, -12, 1, -78), Position = UDim2.new(0, 6, 0, 74), BackgroundTransparency = 1, Parent = Main })
+local Content = Create("Frame", { Size = UDim2.new(1, -12, 1, -78), Position = UDim2.new(0, 6, 0, 74), BackgroundTransparency = 1, ZIndex = 999901, Parent = Main })
 
 local Tabs, Pages = {}, {}
 local tabOrderCount = 0
@@ -431,13 +434,13 @@ local function CreateTab(name)
     tabOrderCount = tabOrderCount + 1
     local btn = Create("TextButton", {
         Size = UDim2.new(0.32, 0, 1, 0), BackgroundColor3 = COLORS.Button, Text = name,
-        TextColor3 = COLORS.SubText, TextSize = 11, Font = Enum.Font.GothamBold, LayoutOrder = tabOrderCount, Parent = TabBar
+        TextColor3 = COLORS.SubText, TextSize = 11, Font = Enum.Font.GothamBold, LayoutOrder = tabOrderCount, ZIndex = 999902, Parent = TabBar
     })
     AddCorner(btn, 5)
 
     local page = Create("ScrollingFrame", {
         Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false, Parent = Content
+        ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false, ZIndex = 999902, Parent = Content
     })
     Create("UIListLayout", { Padding = UDim.new(0, 5), Parent = page })
 
@@ -487,55 +490,12 @@ local function BindLongPress(button, duration, callback)
     end)
 end
 
-local function CreateCombinedInput(id, parent, labelText, defaultVal, onValueChange, onToggle)
-    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
-    AddCorner(holder, 5)
-    Create("TextLabel", { Size = UDim2.new(1, -110, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
-
-    local input = Create("TextBox", { Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(1, -85, 0.5, -10), BackgroundColor3 = COLORS.Button, Text = tostring(defaultVal), TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, Parent = holder })
-    AddCorner(input, 4)
-
-    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0.5, -10), BackgroundColor3 = COLORS.Button, Text = "", Parent = holder })
-    AddCorner(check, 4)
-    AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
-
-    local state = false
-    local function setCheckState(st, skipSave)
-        state = st
-        check.BackgroundColor3 = state and COLORS.Accent or COLORS.Button
-        check.Text = state and "✓" or ""
-        check.TextColor3 = Color3.new(1, 1, 1)
-        if onToggle then onToggle(state) end
-        if not skipSave then SaveAutoConfig() end
-    end
-
-    check.MouseButton1Click:Connect(function()
-        setCheckState(not state)
-    end)
-
-    input.FocusLost:Connect(function()
-        local num = tonumber(input.Text)
-        if num then 
-            if onValueChange then onValueChange(num) end 
-            SaveAutoConfig()
-        else 
-            input.Text = tostring(defaultVal) 
-        end
-    end)
-
-    UI_Controls[id] = {
-        SetState = function(s) setCheckState(s, true) end,
-        SetValue = function(v) input.Text = tostring(v); if onValueChange then onValueChange(v) end end
-    }
-    return holder
-end
-
 local function CreateCheckbox(id, parent, labelText, onToggle)
-    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = parent })
+    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, ZIndex = 999903, Parent = parent })
     AddCorner(holder, 5)
-    Create("TextLabel", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
+    Create("TextLabel", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = labelText, TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999904, Parent = holder })
 
-    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0.5, -10), BackgroundColor3 = COLORS.Button, Text = "", Parent = holder })
+    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0.5, -10), BackgroundColor3 = COLORS.Button, Text = "", ZIndex = 999904, Parent = holder })
     AddCorner(check, 4)
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
@@ -557,30 +517,82 @@ local function CreateCheckbox(id, parent, labelText, onToggle)
     return check
 end
 
--- DISTANCE SLIDER COMPONENT (MIN: 0, MAX: 100, DEFAULT: 50)
+--==================================================
+-- MODIFIABLE STATS LIST
+--==================================================
+local StatsHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 130), BackgroundColor3 = COLORS.Panel, ZIndex = 999903, Parent = MovePage })
+AddCorner(StatsHolder, 5)
+Create("TextLabel", { Size = UDim2.new(1, -10, 0, 22), Position = UDim2.new(0, 8, 0, 2), BackgroundTransparency = 1, Text = "modifiable stats list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999904, Parent = StatsHolder })
+
+local StatsScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 100), Position = UDim2.new(0, 6, 0, 24), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 999904, Parent = StatsHolder })
+Create("UIListLayout", { Padding = UDim.new(0, 3), Parent = StatsScroll })
+
+local function RefreshModStatsList()
+    for _, c in ipairs(StatsScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    local detectedStats = {
+        { Name = "speed", Key = "Speed", Default = 16 },
+        { Name = "jump", Key = "Jump", Default = 50 },
+    }
+    if hum then
+        table.insert(detectedStats, { Name = "health", Key = "Health", Default = hum.Health })
+        table.insert(detectedStats, { Name = "max health", Key = "MaxHealth", Default = hum.MaxHealth })
+    end
+
+    for _, statInfo in ipairs(detectedStats) do
+        local statRow = Create("Frame", { Size = UDim2.new(1, -4, 0, 26), BackgroundColor3 = DynamicStats[statInfo.Key].Enabled and COLORS.Accent or COLORS.Button, ZIndex = 999905, Parent = StatsScroll })
+        AddCorner(statRow, 4)
+
+        local toggleBtn = Create("TextButton", { Size = UDim2.new(1, -65, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = statInfo.Name, TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999906, Parent = statRow })
+        local valBox = Create("TextBox", { Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(1, -55, 0.5, -10), BackgroundColor3 = COLORS.Panel, Text = tostring(DynamicStats[statInfo.Key].Value), TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 999906, Parent = statRow })
+        AddCorner(valBox, 4)
+
+        toggleBtn.MouseButton1Click:Connect(function()
+            local current = DynamicStats[statInfo.Key].Enabled
+            DynamicStats[statInfo.Key].Enabled = not current
+            statRow.BackgroundColor3 = DynamicStats[statInfo.Key].Enabled and COLORS.Accent or COLORS.Button
+            SaveAutoConfig()
+        end)
+
+        valBox.FocusLost:Connect(function()
+            local num = tonumber(valBox.Text)
+            if num then
+                DynamicStats[statInfo.Key].Value = num
+                SaveAutoConfig()
+            else
+                valBox.Text = tostring(DynamicStats[statInfo.Key].Value)
+            end
+        end)
+    end
+end
+RefreshModStatsList()
+
 local function CreateDistanceSlider(parent)
-    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 52), BackgroundColor3 = COLORS.Panel, Parent = parent })
+    local holder = Create("Frame", { Size = UDim2.new(1, -2, 0, 52), BackgroundColor3 = COLORS.Panel, ZIndex = 999903, Parent = parent })
     AddCorner(holder, 5)
 
-    local titleLbl = Create("TextLabel", { Size = UDim2.new(1, -40, 0, 20), Position = UDim2.new(0, 8, 0, 4), BackgroundTransparency = 1, Text = "distance check", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = holder })
+    local titleLbl = Create("TextLabel", { Size = UDim2.new(1, -40, 0, 20), Position = UDim2.new(0, 8, 0, 4), BackgroundTransparency = 1, Text = "distance check", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999904, Parent = holder })
 
-    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0, 4), BackgroundColor3 = COLORS.Button, Text = "", Parent = holder })
+    local check = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -25, 0, 4), BackgroundColor3 = COLORS.Button, Text = "", ZIndex = 999904, Parent = holder })
     AddCorner(check, 4)
     AddStroke(check, Color3.fromRGB(75, 75, 85), 1)
 
-    local sliderContainer = Create("Frame", { Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 28), BackgroundTransparency = 1, Parent = holder })
+    local sliderContainer = Create("Frame", { Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 28), BackgroundTransparency = 1, ZIndex = 999904, Parent = holder })
     
-    local lineBg = Create("Frame", { Size = UDim2.new(1, 0, 0, 4), Position = UDim2.new(0, 0, 0.5, -2), BackgroundColor3 = COLORS.Button, BorderSizePixel = 0, Parent = sliderContainer })
+    local lineBg = Create("Frame", { Size = UDim2.new(1, 0, 0, 4), Position = UDim2.new(0, 0, 0.5, -2), BackgroundColor3 = COLORS.Button, BorderSizePixel = 0, ZIndex = 999905, Parent = sliderContainer })
     AddCorner(lineBg, 2)
 
-    local lineFill = Create("Frame", { Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = COLORS.Accent, BorderSizePixel = 0, Parent = lineBg })
+    local lineFill = Create("Frame", { Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = COLORS.Accent, BorderSizePixel = 0, ZIndex = 999905, Parent = lineBg })
     AddCorner(lineFill, 2)
 
-    local knob = Create("Frame", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0.5, -7, 0.5, -7), BackgroundColor3 = COLORS.Text, Parent = sliderContainer })
+    local knob = Create("Frame", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0.5, -7, 0.5, -7), BackgroundColor3 = COLORS.Text, ZIndex = 999906, Parent = sliderContainer })
     AddCorner(knob, 7)
     AddStroke(knob, COLORS.Accent, 1.5)
 
-    local valLbl = Create("TextLabel", { Size = UDim2.new(0, 30, 0, 16), Position = UDim2.new(1, -68, 0, 4), BackgroundTransparency = 1, Text = "50", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right, Parent = holder })
+    local valLbl = Create("TextLabel", { Size = UDim2.new(0, 30, 0, 16), Position = UDim2.new(1, -68, 0, 4), BackgroundTransparency = 1, Text = "50", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 999904, Parent = holder })
 
     local isDragging = false
     local function UpdateSlider(inputPos)
@@ -646,9 +658,6 @@ end
 -- MOVE TAB SETUP & FLY CONTROLS
 --==================================================
 
-CreateCombinedInput("Speed", MovePage, "speed: enter num", Settings.Speed.Value, function(v) Settings.Speed.Value = v end, function(s) Settings.Speed.Enabled = s end)
-CreateCombinedInput("Jump", MovePage, "jump: enter num", Settings.Jump.Value, function(v) Settings.Jump.Value = v end, function(s) Settings.Jump.Enabled = s end)
-
 local FlyToggleBtn = Create("TextButton", {
     Size = UDim2.new(0, 55, 0, 30),
     AnchorPoint = Vector2.new(0, 0.5),
@@ -659,7 +668,7 @@ local FlyToggleBtn = Create("TextButton", {
     TextSize = 13,
     Font = Enum.Font.GothamBold,
     Visible = false,
-    ZIndex = 80,
+    ZIndex = 999950,
     Parent = ScreenGui
 })
 AddCorner(FlyToggleBtn, 6)
@@ -671,15 +680,15 @@ local FlyControls = Create("Frame", {
     Position = UDim2.new(0, 20, 0.5, -10),
     BackgroundTransparency = 1, 
     Visible = false, 
-    ZIndex = 80,
+    ZIndex = 999950,
     Parent = ScreenGui 
 })
 
-local FlyUp = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "▲", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, Parent = FlyControls })
+local FlyUp = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = COLORS.Accent, Text = "▲", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, ZIndex = 999951, Parent = FlyControls })
 AddCorner(FlyUp, 5)
 AddStroke(FlyUp, Color3.fromRGB(0, 0, 0), 1)
 
-local FlyDown = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 30), BackgroundColor3 = COLORS.Accent, Text = "▼", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, Parent = FlyControls })
+local FlyDown = Create("TextButton", { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 30), BackgroundColor3 = COLORS.Accent, Text = "▼", TextColor3 = Color3.new(1,1,1), TextSize = 12, Font = Enum.Font.GothamBold, ZIndex = 999951, Parent = FlyControls })
 AddCorner(FlyDown, 5)
 AddStroke(FlyDown, Color3.fromRGB(0, 0, 0), 1)
 
@@ -721,27 +730,93 @@ CreateCheckbox("NoGravity", MovePage, "no gravity", function(v)
     end
 end)
 
--- TP PLAYER LIST
-local TpPlayerHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
+--==================================================
+-- PLAYER LIST & BOTTOM CENTER NAVIGATION BAR WITH EXIT "×" BUTTON
+--==================================================
+local TpPlayerHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, ZIndex = 999903, Parent = MovePage })
 AddCorner(TpPlayerHolder, 5)
-Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6, 0, 2), BackgroundTransparency = 1, Text = "tp player list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = TpPlayerHolder })
+Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6, 0, 2), BackgroundTransparency = 1, Text = "tp player list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999904, Parent = TpPlayerHolder })
 
-local PlayerTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpPlayerHolder })
-AddCorner(PlayerTpBtn, 4)
-
-local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpPlayerHolder })
+local PlayerScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 24), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 999904, Parent = TpPlayerHolder })
 Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = PlayerScrollList })
 
+-- Bottom Center Floating Bar (< name >) with Exit "×" Button
+local BottomTargetBar = Create("Frame", {
+    Size = UDim2.new(0, 240, 0, 32),
+    AnchorPoint = Vector2.new(0.5, 1),
+    Position = UDim2.new(0.5, 0, 1, -15),
+    BackgroundColor3 = COLORS.Panel,
+    BackgroundTransparency = 0.2,
+    Visible = false,
+    ZIndex = 999960,
+    Parent = ScreenGui
+})
+AddCorner(BottomTargetBar, 6)
+AddStroke(BottomTargetBar, COLORS.Accent, 1)
+
+local PrevTargetBtn = Create("TextButton", { Size = UDim2.new(0, 28, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, Text = "<", TextColor3 = COLORS.Accent, TextSize = 14, Font = Enum.Font.GothamBold, ZIndex = 999961, Parent = BottomTargetBar })
+local NextTargetBtn = Create("TextButton", { Size = UDim2.new(0, 28, 1, 0), Position = UDim2.new(1, -56, 0, 0), BackgroundTransparency = 1, Text = ">", TextColor3 = COLORS.Accent, TextSize = 14, Font = Enum.Font.GothamBold, ZIndex = 999961, Parent = BottomTargetBar })
+local TargetNameDisplay = Create("TextButton", { Size = UDim2.new(1, -84, 1, 0), Position = UDim2.new(0, 28, 0, 0), BackgroundTransparency = 1, Text = "none (double click TP)", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 999961, Parent = BottomTargetBar })
+
+local ExitSpectateBtn = Create("TextButton", {
+    Size = UDim2.new(0, 28, 1, 0),
+    Position = UDim2.new(1, -28, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "×",
+    TextColor3 = COLORS.Red,
+    TextSize = 16,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 999961,
+    Parent = BottomTargetBar
+})
+
+ExitSpectateBtn.MouseButton1Click:Connect(function()
+    SelectedPlayer = nil
+    BottomTargetBar.Visible = false
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
+    end
+end)
+
+local allPlayersList = {}
+local currentPlayerIndex = 1
+
+local function UpdateBottomBarText()
+    if SelectedPlayer then
+        TargetNameDisplay.Text = SelectedPlayer.Name
+        BottomTargetBar.Visible = true
+    else
+        TargetNameDisplay.Text = "none (double click TP)"
+    end
+end
+
 local function RefreshPlayerList()
-    for _, c in ipairs(PlayerScrollList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-    for _, p in ipairs(Players:GetPlayers()) do
+    for _, c in ipairs(PlayerScrollList:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    allPlayersList = Players:GetPlayers()
+    
+    for _, p in ipairs(allPlayersList) do
         if p ~= LocalPlayer then
-            local pBtn = Create("TextButton", {
-                Size = UDim2.new(1, -4, 0, 18), BackgroundColor3 = (SelectedPlayer == p) and COLORS.Accent or COLORS.Button,
-                Text = p.Name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, Parent = PlayerScrollList
-            })
-            AddCorner(pBtn, 3)
-            pBtn.MouseButton1Click:Connect(function() SelectedPlayer = p; RefreshPlayerList() end)
+            local row = Create("Frame", { Size = UDim2.new(1, -4, 0, 20), BackgroundColor3 = (SelectedPlayer == p) and COLORS.Accent or COLORS.Button, ZIndex = 999905, Parent = PlayerScrollList })
+            AddCorner(row, 3)
+
+            local eyeBtn = Create("TextButton", { Size = UDim2.new(0, 20, 1, 0), Position = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1, Text = "👁", TextColor3 = Color3.new(1,1,1), TextSize = 10, ZIndex = 999906, Parent = row })
+            local pBtn = Create("TextButton", { Size = UDim2.new(1, -26, 1, 0), Position = UDim2.new(0, 24, 0, 0), BackgroundTransparency = 1, Text = p.Name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999906, Parent = row })
+
+            eyeBtn.MouseButton1Click:Connect(function()
+                SelectedPlayer = p
+                UpdateBottomBarText()
+                if p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
+                    Camera.CameraSubject = p.Character:FindFirstChildOfClass("Humanoid")
+                end
+                RefreshPlayerList()
+            end)
+
+            pBtn.MouseButton1Click:Connect(function()
+                SelectedPlayer = p
+                UpdateBottomBarText()
+                RefreshPlayerList()
+            end)
         end
     end
 end
@@ -749,23 +824,72 @@ Players.PlayerAdded:Connect(RefreshPlayerList)
 Players.PlayerRemoving:Connect(RefreshPlayerList)
 RefreshPlayerList()
 
-PlayerTpBtn.MouseButton1Click:Connect(function()
-    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myRoot then myRoot.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0) end
+PrevTargetBtn.MouseButton1Click:Connect(function()
+    local validPlayers = {}
+    for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(validPlayers, p) end end
+    if #validPlayers == 0 then return end
+    
+    currentPlayerIndex = currentPlayerIndex - 1
+    if currentPlayerIndex < 1 then currentPlayerIndex = #validPlayers end
+    SelectedPlayer = validPlayers[currentPlayerIndex]
+    UpdateBottomBarText()
+    RefreshPlayerList()
+    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        Camera.CameraSubject = SelectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+end)
+
+NextTargetBtn.MouseButton1Click:Connect(function()
+    local validPlayers = {}
+    for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(validPlayers, p) end end
+    if #validPlayers == 0 then return end
+    
+    currentPlayerIndex = currentPlayerIndex + 1
+    if currentPlayerIndex > #validPlayers then currentPlayerIndex = 1 end
+    SelectedPlayer = validPlayers[currentPlayerIndex]
+    UpdateBottomBarText()
+    RefreshPlayerList()
+    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        Camera.CameraSubject = SelectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+end)
+
+-- Double click to TP + Auto Exit Spectate & Hide Navigation Bar
+local lastTargetClick = 0
+TargetNameDisplay.MouseButton1Click:Connect(function()
+    local currentTick = os.clock()
+    if currentTick - lastTargetClick <= 0.35 then
+        if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                myRoot.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
+                
+                -- Tự động thoát quan sát và ẩn thanh điều hướng sau khi TP thành công
+                SelectedPlayer = nil
+                BottomTargetBar.Visible = false
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChildOfClass("Humanoid") then
+                    Camera.CameraSubject = char:FindFirstChildOfClass("Humanoid")
+                end
+                RefreshPlayerList()
+            end
+        end
+        lastTargetClick = 0
+    else
+        lastTargetClick = currentTick
     end
 end)
 
 -- CONFIRM OVERLAY
-local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 100, Parent = ScreenGui })
-local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 101, Parent = ConfirmOverlay })
+local ConfirmOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 999990, Parent = ScreenGui })
+local ConfirmBox = Create("Frame", { Size = UDim2.new(0, 200, 0, 100), Position = UDim2.new(0.5, -100, 0.5, -50), BackgroundColor3 = COLORS.Panel, ZIndex = 999991, Parent = ConfirmOverlay })
 AddCorner(ConfirmBox, 8)
 
-local ConfirmText = Create("TextLabel", { Size = UDim2.new(1, -10, 0, 40), Position = UDim2.new(0, 5, 0, 10), BackgroundTransparency = 1, Text = "Confirm Action?", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.GothamBold, TextWrapped = true, ZIndex = 102, Parent = ConfirmBox })
-local ConfirmYes = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(0, 15, 1, -34), BackgroundColor3 = COLORS.Red, Text = "Yes", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 102, Parent = ConfirmBox })
+local ConfirmText = Create("TextLabel", { Size = UDim2.new(1, -10, 0, 40), Position = UDim2.new(0, 5, 0, 10), BackgroundTransparency = 1, Text = "Confirm Action?", TextColor3 = COLORS.Text, TextSize = 11, Font = Enum.Font.GothamBold, TextWrapped = true, ZIndex = 999992, Parent = ConfirmBox })
+local ConfirmYes = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(0, 15, 1, -34), BackgroundColor3 = COLORS.Red, Text = "Yes", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 999992, Parent = ConfirmBox })
 AddCorner(ConfirmYes, 5)
 
-local ConfirmNo = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(1, -90, 1, -34), BackgroundColor3 = COLORS.Button, Text = "No", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 102, Parent = ConfirmBox })
+local ConfirmNo = Create("TextButton", { Size = UDim2.new(0, 75, 0, 24), Position = UDim2.new(1, -90, 1, -34), BackgroundColor3 = COLORS.Button, Text = "No", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 999992, Parent = ConfirmBox })
 AddCorner(ConfirmNo, 5)
 
 local currentConfirmAction = nil
@@ -780,44 +904,66 @@ ConfirmYes.MouseButton1Click:Connect(function()
     if currentConfirmAction then currentConfirmAction() end
 end)
 
--- TP LOCATION LIST
-local TpLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 80), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
-AddCorner(TpLocHolder, 5)
-Create("TextLabel", { Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 6, 0, 2), BackgroundTransparency = 1, Text = "tp location list:", TextColor3 = COLORS.SubText, TextSize = 10, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = TpLocHolder })
+--==================================================
+-- RESTORED STABLE TP LOCATION LIST WINDOW
+--==================================================
 
-local LocTpBtn = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 2), BackgroundColor3 = COLORS.Accent, Text = "🖱", TextColor3 = Color3.new(1,1,1), TextSize = 10, Parent = TpLocHolder })
-AddCorner(LocTpBtn, 4)
+local SetLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, ZIndex = 999903, Parent = MovePage })
+AddCorner(SetLocHolder, 5)
 
-local LocScrollList = Create("ScrollingFrame", { Size = UDim2.new(1, -12, 0, 52), Position = UDim2.new(0, 6, 0, 22), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = TpLocHolder })
-Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = LocScrollList })
+local LocNameInput = Create("TextBox", { Size = UDim2.new(1, -50, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = "", PlaceholderText = "+ set locate", PlaceholderColor3 = COLORS.SubText, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 999904, Parent = SetLocHolder })
+local SetBtn = Create("TextButton", { Size = UDim2.new(0, 38, 0, 20), Position = UDim2.new(1, -42, 0.5, -10), BackgroundColor3 = COLORS.Green, Text = "Set", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 999904, Parent = SetLocHolder })
+AddCorner(SetBtn, 4)
+
+local FloatingTpWindow = Create("Frame", {
+    Size = UDim2.new(0, 160, 0, 120),
+    Position = UDim2.new(0.8, -80, 0.4, -60),
+    BackgroundColor3 = COLORS.Background,
+    Visible = false,
+    ZIndex = 999970,
+    Parent = ScreenGui
+})
+AddCorner(FloatingTpWindow, 6)
+AddStroke(FloatingTpWindow, COLORS.Accent, 1)
+MakeDraggable(FloatingTpWindow, FloatingTpWindow)
+
+local FloatHeader = Create("Frame", { Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = COLORS.Panel, ZIndex = 999971, Parent = FloatingTpWindow })
+AddCorner(FloatHeader, 6)
+Create("TextLabel", { Size = UDim2.new(1, -8, 1, 0), Position = UDim2.new(0, 4, 0, 0), BackgroundTransparency = 1, Text = "Locations List", TextColor3 = COLORS.Text, TextSize = 9, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999972, Parent = FloatHeader })
+
+local FloatScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -4, 1, -26), Position = UDim2.new(0, 2, 0, 24), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 999972, Parent = FloatingTpWindow })
+Create("UIListLayout", { Padding = UDim.new(0, 2), Parent = FloatScroll })
 
 local function RefreshLocationList()
-    for _, c in ipairs(LocScrollList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    for _, c in ipairs(FloatScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
     for idx, loc in ipairs(Locations) do
-        local lBtn = Create("TextButton", {
-            Size = UDim2.new(1, -4, 0, 18), BackgroundColor3 = (SelectedLocation == loc) and COLORS.Accent or COLORS.Button,
-            Text = loc.Name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, Parent = LocScrollList
-        })
-        AddCorner(lBtn, 3)
-        lBtn.MouseButton1Click:Connect(function() SelectedLocation = loc; RefreshLocationList() end)
+        local lItem = Create("Frame", { Size = UDim2.new(1, -2, 0, 22), BackgroundColor3 = COLORS.Panel, ZIndex = 999973, Parent = FloatScroll })
+        AddCorner(lItem, 3)
+
+        local lBtn = Create("TextButton", { Size = UDim2.new(1, -30, 1, 0), Position = UDim2.new(0, 3, 0, 0), BackgroundTransparency = 1, Text = loc.Name, TextColor3 = COLORS.Text, TextSize = 9, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999974, Parent = lItem })
         
-        BindLongPress(lBtn, 1, function()
+        local miniTpBtn = Create("TextButton", { Size = UDim2.new(0, 24, 0, 16), Position = UDim2.new(1, -26, 0.5, -8), BackgroundColor3 = COLORS.Accent, Text = "TP", TextColor3 = Color3.new(1,1,1), TextSize = 8, Font = Enum.Font.GothamBold, ZIndex = 999974, Parent = lItem })
+        AddCorner(miniTpBtn, 3)
+
+        miniTpBtn.MouseButton1Click:Connect(function()
+            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then myRoot.CFrame = loc.CFrame * CFrame.new(0, 2, 0) end
+        end)
+
+        BindLongPress(lItem, 1, function()
             ShowConfirm("Delete location '"..loc.Name.."'?", function()
                 if loc.Part then loc.Part:Destroy() end
                 table.remove(Locations, idx)
-                if SelectedLocation == loc then SelectedLocation = nil end
                 RefreshLocationList()
             end)
         end)
     end
 end
 
-local SetLocHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 32), BackgroundColor3 = COLORS.Panel, Parent = MovePage })
-AddCorner(SetLocHolder, 5)
-
-local LocNameInput = Create("TextBox", { Size = UDim2.new(1, -50, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = "", PlaceholderText = "+ set locate", PlaceholderColor3 = COLORS.SubText, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, Parent = SetLocHolder })
-local SetBtn = Create("TextButton", { Size = UDim2.new(0, 38, 0, 20), Position = UDim2.new(1, -42, 0.5, -10), BackgroundColor3 = COLORS.Green, Text = "Set", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, Parent = SetLocHolder })
-AddCorner(SetBtn, 4)
+CreateCheckbox("TpLocationWindow", MovePage, "tp location list window", function(v)
+    Settings.TpLocationWindow = v
+    FloatingTpWindow.Visible = v
+end)
 
 SetBtn.MouseButton1Click:Connect(function()
     local name = LocNameInput.Text
@@ -835,19 +981,11 @@ SetBtn.MouseButton1Click:Connect(function()
     table.insert(Locations, locData)
 
     LocNameInput.Text = ""
-    SelectedLocation = locData
     RefreshLocationList()
 end)
 
-LocTpBtn.MouseButton1Click:Connect(function()
-    if SelectedLocation then
-        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myRoot then myRoot.CFrame = SelectedLocation.CFrame * CFrame.new(0, 2, 0) end
-    end
-end)
-
 --==================================================
--- ESP TAB SETUP & FREECAM
+-- ESP TAB & FREECAM SETUP
 --==================================================
 
 CreateCheckbox("PlayerESP", ESPPage, "player ESP", function(s) Settings.PlayerESP = s end)
@@ -911,7 +1049,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 --==================================================
--- OPTION TAB SETUP & FIX LAG / ADJUSTED FULLBRIGHT
+-- OPTION TAB SETUP
 --==================================================
 
 local originalLightingProps = {
@@ -1001,9 +1139,6 @@ end)
 local function ApplySettingsToUI(newSettings)
     for k, v in pairs(newSettings) do Settings[k] = v end
 
-    if UI_Controls["Speed"] then UI_Controls["Speed"].SetState(Settings.Speed.Enabled); UI_Controls["Speed"].SetValue(Settings.Speed.Value) end
-    if UI_Controls["Jump"] then UI_Controls["Jump"].SetState(Settings.Jump.Enabled); UI_Controls["Jump"].SetValue(Settings.Jump.Value) end
-
     if UI_Controls["Fly"] then UI_Controls["Fly"].SetState(Settings.Fly) end
     if UI_Controls["Noclip"] then UI_Controls["Noclip"].SetState(Settings.Noclip) end
     if UI_Controls["NoGravity"] then UI_Controls["NoGravity"].SetState(Settings.NoGravity) end
@@ -1023,29 +1158,23 @@ local function ApplySettingsToUI(newSettings)
     if UI_Controls["AutoExecute"] then UI_Controls["AutoExecute"].SetState(Settings.AutoExecute) end
     if UI_Controls["ShiftLock"] then UI_Controls["ShiftLock"].SetState(Settings.ShiftLock) end
     if UI_Controls["MenuLock"] then UI_Controls["MenuLock"].SetState(Settings.MenuLock) end
+    if UI_Controls["TpLocationWindow"] then UI_Controls["TpLocationWindow"].SetState(Settings.TpLocationWindow) end
 
     FlyToggleBtn.Visible = Settings.Fly
     if not Settings.Fly then
         isFlyingActive = false
         FlyControls.Visible = false
     end
-
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = 16
-        hum.JumpPower = 50
-        hum.UseJumpPower = false
-    end
+    FloatingTpWindow.Visible = Settings.TpLocationWindow
 end
 
--- RESET & CONFIG
-local OptionBtnHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 36), BackgroundTransparency = 1, Parent = OptionPage })
+local OptionBtnHolder = Create("Frame", { Size = UDim2.new(1, -2, 0, 36), BackgroundTransparency = 1, ZIndex = 999903, Parent = OptionPage })
 Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), Parent = OptionBtnHolder })
 
-local ResetBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Red, Text = "Reset Default", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
+local ResetBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Red, Text = "Reset Default", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, ZIndex = 999904, Parent = OptionBtnHolder })
 AddCorner(ResetBtn, 6)
 
-local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Accent, Text = "Config", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, Parent = OptionBtnHolder })
+local ConfigBtn = Create("TextButton", { Size = UDim2.new(0.5, -3, 1, 0), BackgroundColor3 = COLORS.Accent, Text = "Config", TextColor3 = Color3.new(1,1,1), TextSize = 11, Font = Enum.Font.GothamBold, ZIndex = 999904, Parent = OptionBtnHolder })
 AddCorner(ConfigBtn, 6)
 
 ResetBtn.MouseButton1Click:Connect(function()
@@ -1055,34 +1184,34 @@ ResetBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
-local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 30, Parent = ScreenGui })
-local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 31, Parent = ConfigOverlay })
+local ConfigOverlay = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, ZIndex = 999980, Parent = ScreenGui })
+local ConfigBoard = Create("Frame", { Size = UDim2.new(0, 220, 0, 230), Position = UDim2.new(0.5, -110, 0.5, -115), BackgroundColor3 = COLORS.Background, ZIndex = 999981, Parent = ConfigOverlay })
 AddCorner(ConfigBoard, 8)
 AddStroke(ConfigBoard, COLORS.Accent, 1)
 
-Create("TextLabel", { Size = UDim2.new(1, -30, 0, 28), Position = UDim2.new(0, 10, 0, 2), BackgroundTransparency = 1, Text = "Config Manager", TextColor3 = COLORS.Text, TextSize = 12, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32, Parent = ConfigBoard })
+Create("TextLabel", { Size = UDim2.new(1, -30, 0, 28), Position = UDim2.new(0, 10, 0, 2), BackgroundTransparency = 1, Text = "Config Manager", TextColor3 = COLORS.Text, TextSize = 12, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999982, Parent = ConfigBoard })
 
-local ConfigClose = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 4), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 14, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
+local ConfigClose = Create("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -24, 0, 4), BackgroundColor3 = COLORS.Button, Text = "×", TextColor3 = COLORS.Text, TextSize = 14, Font = Enum.Font.GothamBold, ZIndex = 999982, Parent = ConfigBoard })
 AddCorner(ConfigClose, 4)
 ConfigClose.MouseButton1Click:Connect(function() ConfigOverlay.Visible = false end)
 
-local ConfigNameInput = Create("TextBox", { Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 32), BackgroundColor3 = COLORS.Panel, Text = "", PlaceholderText = "New config name...", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 32, Parent = ConfigBoard })
+local ConfigNameInput = Create("TextBox", { Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 32), BackgroundColor3 = COLORS.Panel, Text = "", PlaceholderText = "New config name...", TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, ClearTextOnFocus = false, ZIndex = 999982, Parent = ConfigBoard })
 AddCorner(ConfigNameInput, 5)
 
-local SaveConfigBtn = Create("TextButton", { Size = UDim2.new(1, -20, 0, 24), Position = UDim2.new(0, 10, 0, 62), BackgroundColor3 = COLORS.Green, Text = "+ Save Current Config", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 32, Parent = ConfigBoard })
+local SaveConfigBtn = Create("TextButton", { Size = UDim2.new(1, -20, 0, 24), Position = UDim2.new(0, 10, 0, 62), BackgroundColor3 = COLORS.Green, Text = "+ Save Current Config", TextColor3 = Color3.new(1,1,1), TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 999982, Parent = ConfigBoard })
 AddCorner(SaveConfigBtn, 5)
 
-local ConfigScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -20, 0, 130), Position = UDim2.new(0, 10, 0, 92), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 32, Parent = ConfigBoard })
+local ConfigScroll = Create("ScrollingFrame", { Size = UDim2.new(1, -20, 0, 130), Position = UDim2.new(0, 10, 0, 92), BackgroundTransparency = 1, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 999982, Parent = ConfigBoard })
 Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = ConfigScroll })
 
 local function RefreshConfigList()
     for _, c in ipairs(ConfigScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
     for name, cfgData in pairs(SavedConfigs) do
-        local item = Create("Frame", { Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = COLORS.Panel, ZIndex = 33, Parent = ConfigScroll })
+        local item = Create("Frame", { Size = UDim2.new(1, -4, 0, 24), BackgroundColor3 = COLORS.Panel, ZIndex = 999983, Parent = ConfigScroll })
         AddCorner(item, 4)
 
-        local nameLbl = Create("TextLabel", { Size = UDim2.new(1, -55, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 34, Parent = item })
-        local loadBtn = Create("TextButton", { Size = UDim2.new(0, 42, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = COLORS.Accent, Text = "Load", TextColor3 = Color3.new(1,1,1), TextSize = 9, Font = Enum.Font.GothamBold, ZIndex = 34, Parent = item })
+        local nameLbl = Create("TextLabel", { Size = UDim2.new(1, -55, 1, 0), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = COLORS.Text, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 999984, Parent = item })
+        local loadBtn = Create("TextButton", { Size = UDim2.new(0, 42, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = COLORS.Accent, Text = "Load", TextColor3 = Color3.new(1,1,1), TextSize = 9, Font = Enum.Font.GothamBold, ZIndex = 999984, Parent = item })
         AddCorner(loadBtn, 3)
 
         loadBtn.MouseButton1Click:Connect(function()
@@ -1118,7 +1247,6 @@ ConfigBtn.MouseButton1Click:Connect(function()
     ConfigOverlay.Visible = true
 end)
 
--- AUTO LOAD PREVIOUS CONFIG ON INJECTION
 local autoConfig = LoadAutoConfig()
 if autoConfig then
     ApplySettingsToUI(autoConfig)
@@ -1131,7 +1259,7 @@ if autoConfig then
 end
 
 --==================================================
--- DISTANCE & ADVANCED ANOMALY DETECTOR
+-- RENDER LOOP & STATS APPLICATION
 --==================================================
 
 local function TriggerPurple(p)
@@ -1163,10 +1291,6 @@ local function GetPlayerColor(p)
     return Color3.fromRGB(255, 255, 255)
 end
 
---==================================================
--- RENDER LOOP & FPS CALCULATOR
---==================================================
-
 local function GetLine(p)
     if not TraceLines[p] then
         local line = Drawing.new("Line")
@@ -1181,7 +1305,6 @@ local frameCount = 0
 local lastFpsUpdate = tick()
 
 RunService.RenderStepped:Connect(function(deltaTime)
-    -- CALCULATE & UPDATE FPS
     frameCount = frameCount + 1
     if tick() - lastFpsUpdate >= 1 then
         local currentFps = math.floor(frameCount / (tick() - lastFpsUpdate))
@@ -1195,8 +1318,10 @@ RunService.RenderStepped:Connect(function(deltaTime)
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
     if hum then
-        if Settings.Speed.Enabled then hum.WalkSpeed = Settings.Speed.Value end
-        if Settings.Jump.Enabled then hum.UseJumpPower = true; hum.JumpPower = Settings.Jump.Value end
+        if DynamicStats.Speed.Enabled then hum.WalkSpeed = DynamicStats.Speed.Value end
+        if DynamicStats.Jump.Enabled then hum.UseJumpPower = true; hum.JumpPower = DynamicStats.Jump.Value end
+        if DynamicStats.Health.Enabled then pcall(function() hum.Health = DynamicStats.Health.Value end) end
+        if DynamicStats.MaxHealth.Enabled then pcall(function() hum.MaxHealth = DynamicStats.MaxHealth.Value end) end
     end
 
     if Settings.Noclip and char then
@@ -1212,7 +1337,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
             flatMoveDir = flatMoveDir.Unit
         end
 
-        local flySpeed = Settings.Speed.Enabled and Settings.Speed.Value or 50
+        local flySpeed = DynamicStats.Speed.Enabled and DynamicStats.Speed.Value or 50
         local ySpeed = (flyUpHeld and 40 or 0) - (flyDownHeld and 40 or 0)
         
         myRoot.AssemblyLinearVelocity = Vector3.new(flatMoveDir.X * flySpeed, ySpeed, flatMoveDir.Z * flySpeed)
@@ -1249,7 +1374,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Camera.CFrame = CFrame.new(FreecamPos) * rotCFrame
     end
 
-    -- SOFTENED SURVIVAL-PROOF FULLBRIGHT LOGIC
     if Settings.Fullbright then
         Lighting.Brightness = 1.2
         Lighting.ClockTime = 14
@@ -1276,13 +1400,11 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    -- DIRECT SHIFTLOCK
     if Settings.ShiftLock and myRoot then
         local lookVector = Camera.CFrame.LookVector
         myRoot.CFrame = CFrame.new(myRoot.Position, myRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
     end
 
-    -- ESP & DYNAMIC DISTANCE CHECK
     local allPlayers = Players:GetPlayers()
     
     for _, p in ipairs(allPlayers) do
@@ -1336,7 +1458,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     stats.LastHP = targetHum.Health
                 end
 
-                -- SYNCED COLOR FOR NAME, HITBOX & TRACE LINE
                 local displayColor = GetPlayerColor(p)
 
                 local espTag = targetRoot:FindFirstChild("ToanESP")
@@ -1384,16 +1505,21 @@ RunService.RenderStepped:Connect(function(deltaTime)
 end)
 
 --==================================================
--- MINIMIZE BUTTON & MENU LOCK SYSTEM
+-- MINIMIZE BUTTON (MARGIN RIGHT 80PX)
 --==================================================
 
 local MiniButton = Create("ImageButton", {
-    Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0, 15, 0.5, -25),
-    BackgroundColor3 = COLORS.Panel, BackgroundTransparency = 1, BorderSizePixel = 0,
-    Visible = false, ZIndex = 100, Parent = ScreenGui
+    Size = UDim2.new(0, 25, 0, 25),
+    Position = UDim2.new(1, -80, 0, 6),
+    BackgroundColor3 = COLORS.Panel,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 999999,
+    Parent = ScreenGui
 })
-AddCorner(MiniButton, 10)
-AddStroke(MiniButton, COLORS.Accent, 1.5)
+AddCorner(MiniButton, 5)
+AddStroke(MiniButton, COLORS.Accent, 1)
 
 task.spawn(function()
     local imgUrl = "https://raw.githubusercontent.com/T4H4KER/Test/refs/heads/main/1781919848774.png"
@@ -1442,4 +1568,4 @@ CloseButton.MouseButton1Click:Connect(function()
     end)
 end)
 
-print("ToanCreator GUI v9 - Dynamic Resizing, Color-Synced ESP/Hitbox/Trace & Softened Fullbright Loaded!")
+print("ToanCreator GUI v14 - Auto Exit Spectate & Hide Navbar on TP Successful!")
